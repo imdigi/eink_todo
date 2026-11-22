@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cn.inktodo.tests">
+    <application android:label="Ink Todo Verification">
+        <provider android:name="cn.inktodo.FontFixtureProvider" android:authorities="cn.inktodo.tests.font" android:exported="true" android:grantUriPermissions="true" />
+    </application>
+    <instrumentation android:name="cn.inktodo.HierarchyVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo filtered hierarchy verification" />
+    <instrumentation android:name="cn.inktodo.FontVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo font import verification" />
+    <instrumentation android:name="cn.inktodo.RenderingDiagnosticRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo rendering comparison" />
+    <instrumentation android:name="cn.inktodo.RenderingVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo antialias verification" />
+    <instrumentation android:name="cn.inktodo.TitleVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo editable title verification" />
+    <instrumentation android:name="cn.inktodo.VerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo offline verification" />
+    <instrumentation android:name="cn.inktodo.SyncVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo manual retry verification" />
+    <instrumentation android:name="cn.inktodo.UndoVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao completion undo verification" />
+    <instrumentation android:name="cn.inktodo.EinkVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo BOOX refresh verification" />
+    <instrumentation android:name="cn.inktodo.ScreensaverVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo public image verification" />
+    <instrumentation android:name="cn.inktodo.ScreensaverUpdateRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo content-driven screensaver verification" />
+    <instrumentation android:name="cn.inktodo.ScreensaverResultRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo screensaver result observation" />
+    <instrumentation android:name="cn.inktodo.PhotoScreensaverRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao temporary photo screensaver" />
+</manifest>

@@ -1,0 +1,45 @@
+{
+  "description": "Vendored third-party libraries; see app/src/main/assets/legal/NOTICE.txt for origin and license notices.",
+  "libraries": [
+    {
+      "file": "app/libs/annotation-1.0.0.jar",
+      "sha256": "0baae9755f7caf52aa80cd04324b91ba93af55d4d1d17dcc9a7b53d99ef7c016"
+    },
+    {
+      "file": "app/libs/annotations-13.0.jar",
+      "sha256": "ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478"
+    },
+    {
+      "file": "app/libs/commonmark-0.21.0.jar",
+      "sha256": "81084a7035046fe306f0dbf16ef57a68d08ee5c97004ea867e62b5db46e98afb"
+    },
+    {
+      "file": "app/libs/commonmark-ext-gfm-strikethrough-0.21.0.jar",
+      "sha256": "b5ed6fa18214e588e502385d95e878a8150f122c7a874a75a389682837b906f8"
+    },
+    {
+      "file": "app/libs/fastjson2-2.0.48.android8.jar",
+      "sha256": "154b3c2ddb3c0b1331dee6e492c2f4f6f3dcb836ed7687fddf628a301a4e2f03"
+    },
+    {
+      "file": "app/libs/kotlin-stdlib-1.6.10.jar",
+      "sha256": "5305f7a4dee7a6cb79a29c258aca93de47b49588a6dfc6da01bd8772589ea66c"
+    },
+    {
+      "file": "app/libs/kotlin-stdlib-jdk7-1.6.10.jar",
+      "sha256": "2aedcdc6b69b33bdf5cc235bcea88e7cf6601146bb6bcdffdb312bbacd7be261"
+    },
+    {
+      "file": "app/libs/kotlin-stdlib-jdk8-1.6.10.jar",
+      "sha256": "1456d82d039ea30d8485b032901f52bbf07e7cdbe8bb1f8708ad32a8574c41ce"
+    },
+    {
+      "file": "app/libs/lunar-1.7.8.jar",
+      "sha256": "7eae60c395de4dee49766f9300fc8360a9a8c5c4b40e1bbf0064ef3eb659b40c"
+    },
+    {
+      "file": "app/libs/onyxsdk-device-1.3.5.3.jar",
+      "sha256": "298b14a962504db34c26e46311ba09f3b32e438cd8824c603abe49f6ce7defbe"
+    }
+  ]
+}

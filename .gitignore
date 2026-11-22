@@ -1,0 +1,39 @@
+# Local build products, SDK/tool downloads and signing credentials
+/build/
+/dist/
+/.toolchain/
+/.signing/
+/.gradle/
+local.properties
+*.iml
+.DS_Store
+
+# Credentials and device/account state
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.pem
+*.key
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*-private.*
+*-private-*
+
+# Generated archives, logs and Python bytecode
+*.apk
+*.aab
+*.idsig
+*.zip
+*.log
+__pycache__/
+*.py[cod]
+
+# Local development history can include device/session details
+/PLAN.md
+/TEST_REPORT.md
