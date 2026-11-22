@@ -28,9 +28,9 @@ if not was_demo:tap("设置");tap("工具与账号");tap("进入演示模式")
 tap("今天");t=ui()
 nav=next(n for n in t.iter("node") if n.get("class")=="android.widget.ScrollView" and any(x.get("text")=="视图" for x in n.iter("node")))
 buttons=[n for n in nav.iter("node") if n.get("class")=="android.widget.Button"]
-assert [n.get("text") for n in buttons[:2]]==["收件箱","今天"] and not any(n.get("text")=="逾期" for n in buttons)
+assert [n.get("text") for n in buttons[:2]]==["今天","收件箱"] and not any(n.get("text")=="逾期" for n in buttons)
 print("PASS overdue navigation removed, today retained",flush=True)
-badge=int(re.search(r"，(\d+)项",buttons[1].get("content-desc")).group(1))
+badge=int(re.search(r"，(\d+)项",buttons[0].get("content-desc")).group(1))
 seen=sections(t);assert seen and seen[0][0]=="今天"
 aligned=False
 for r in task_rows(t):

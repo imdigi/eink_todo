@@ -22,8 +22,8 @@ def main():
     args = p.parse_args()
     if args.test_apk and args.without_onyx_sdk:
         raise SystemExit("The SDK-free diagnostic is an app build, not an instrumentation APK.")
-    version="0.14.4-sdkfree" if args.without_onyx_sdk else "0.14.4"
-    version_code="43" if args.without_onyx_sdk else "44"
+    version="0.14.5-sdkfree" if args.without_onyx_sdk else "0.14.5"
+    version_code="45" if args.without_onyx_sdk else "46"
     sdk = Path(os.environ.get("ANDROID_HOME", str(Path.home() / "Library/Android/sdk")))
     build_tools = Path(os.environ.get("ANDROID_BUILD_TOOLS", str(sdk / "build-tools/35.0.0")))
     android = Path(os.environ.get("ANDROID_JAR", str(ROOT / ".toolchain/android-35/android.jar")))

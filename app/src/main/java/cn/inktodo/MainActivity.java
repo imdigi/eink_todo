@@ -27,7 +27,7 @@ public final class MainActivity extends Activity {
     private Store store;
     private TokenVault vault;
     private SharedPreferences prefs;
-    private String token = "", error = "", filter = "inbox", project = "";
+    private String token = "", error = "", filter = "today", project = "";
     private boolean demo, resumed, destroyed, split;
     private long lastAttempt;
     private LinearLayout root, tasksBox, sideBox;
@@ -65,7 +65,6 @@ public final class MainActivity extends Activity {
         if("墨待办".equals(savedTitle)||"未了".equals(savedTitle)||"未了之事，一勾即了".equals(savedTitle))prefs.edit().putString("title_markdown",TitleMarkdown.DEFAULT).apply();
         REAL_RETRY.restoreServerWait(prefs.getLong("sync_server_until",0),prefs.getBoolean("sync_rate_limited",true));
         demo = prefs.getBoolean("demo", false);
-        filter = prefs.getString("filter", "inbox"); project = prefs.getString("project", "");
         try { token = vault.load(); } catch (Exception e) { error = "凭据无法解密，请在设置重新连接"; }
         openStore(); build();
     }
@@ -76,6 +75,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onConfigurationChanged(Configuration c) { super.onConfigurationChanged(c); build(); }
     @Override protected void onResume() {
+        if(!filter.equals("today")||!project.isEmpty()){filter="today";project="";resetTaskScroll=true;}
         super.onResume();if(!branchFolds.isEmpty()){branchFolds.clear();taskSignature="";}resumed = true; screenFlag(); render(); sync(false); handler.removeCallbacks(tick); handler.postDelayed(tick, 30000);
         configureEink();
         root.post(() -> { if (resumed && !destroyed) eink.clean(root); });
@@ -324,7 +324,7 @@ public final class MainActivity extends Activity {
         if (sideBox == null) return;
         String sig = filter + project + s.inboxId + s.projects.toString() + navCounts; if (sig.equals(sideSignature)) return; sideSignature = sig;
         sideBox.removeAllViews(); TextView label = text("视图", 13, false); label.setPadding(dp(4), 0, 0, dp(6)); sideBox.addView(label);
-        navItem("收件箱", "inbox", ""); navItem("今天", "today", "");
+        navItem("今天", "today", ""); navItem("收件箱", "inbox", "");
         View divider = new View(this); divider.setBackgroundColor(Color.BLACK);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, dp(1));
         dividerParams.setMargins(0, dp(18), 0, 0); sideBox.addView(divider, dividerParams);
@@ -347,8 +347,8 @@ public final class MainActivity extends Activity {
         if(compactNav==null)return;
         String sig=filter+project+navCounts;if(sig.equals(compactSignature))return;compactSignature=sig;
         compactNav.removeAllViews();
-        addButton(compactNav,countedButton("收件箱","inbox",""),1);
         addButton(compactNav,countedButton("今天","today",""),1);
+        addButton(compactNav,countedButton("收件箱","inbox",""),1);
         addButton(compactNav,button("项目",v -> projects()),1);
     }
     private void taskRow(Core.TreeRow node, Store.Snapshot s,String scope) {
@@ -722,7 +722,7 @@ public final class MainActivity extends Activity {
                 Runnable apply = () -> {
                     try {
                         vault.save(value); new Store(getApplicationContext(), false).reset(); token = value; demo = false;
-                        prefs.edit().putBoolean("demo", false).apply(); openStore(); filter = "inbox"; project = "";
+                        prefs.edit().putBoolean("demo", false).apply(); openStore(); filter = "today"; project = "";
                         resetRealRetry(); error = ""; input.setText(""); dialog.dismiss(); build(); sync(true);
                     } catch (Exception e) { toast("无法保存凭据，请重试"); }
                 };
@@ -751,7 +751,7 @@ public final class MainActivity extends Activity {
         if (BUSY.get()) { toast("请等待同步结束"); return; }
         if (settingsDialog != null) settingsDialog.dismiss();
         demo = value; prefs.edit().putBoolean("demo", value).apply(); openStore(); error = ""; DEMO_RETRY.reset();
-        filter = "inbox"; project = ""; build(); if (!demo) sync(false);
+        filter = "today"; project = ""; build(); if (!demo) sync(false);
     }
     private void screenFlag() {
         if (prefs.getBoolean("awake", false)) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

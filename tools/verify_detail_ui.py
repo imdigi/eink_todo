@@ -28,7 +28,7 @@ assert not any(n.get("text") in {"操作记录","清残影","⋯","..."} for n i
 print("PASS top-right sync, hidden utilities and removed item menu",flush=True)
 nav=next(n for n in t.iter("node") if n.get("class")=="android.widget.ScrollView" and any(x.get("text")=="视图" for x in n.iter("node")))
 buttons=[n for n in nav.iter("node") if n.get("class")=="android.widget.Button"]
-assert [n.get("text") for n in buttons[:2]]==["收件箱","今天"]
+assert [n.get("text") for n in buttons[:2]]==["今天","收件箱"]
 for b in buttons:assert re.fullmatch(re.escape(b.get("text"))+r"，\d+项",b.get("content-desc",""))
 print("PASS view and project counters are present",flush=True)
 rs=rows(t);assert len(rs)>=2

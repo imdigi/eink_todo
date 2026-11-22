@@ -37,13 +37,13 @@ run("shell","am","start","-W","-n","cn.inktodo.app/cn.inktodo.MainActivity")
 before=ui();was_demo=any(n.get("text")=="墨待办 · 演示" for n in before.iter("node"))
 tap("收件箱");t=ui();nav=sidebar(t)
 labels=[n.get("text") for n in nav.iter("node") if n.get("class")=="android.widget.Button"]
-assert labels[:2]==["收件箱","今天"] and labels.count("收件箱")==1 and "逾期" not in labels
+assert labels[:2]==["今天","收件箱"] and labels.count("收件箱")==1 and "逾期" not in labels
 assert not any(s in {"Inbox","inbox","全部任务","全部","今日"} for s in labels)
 print("PASS ordered views and inbox excluded from projects",flush=True)
 assert not any(n.get("text") in {"上一页","下一页"} for n in t.iter("node"))
 print("PASS pagination controls removed",flush=True)
 checked_alignment=False;scrolled=False
-for label in ["收件箱","今天"] + labels[2:]:
+for label in ["今天","收件箱"] + labels[2:]:
     tap(label);t=ui()
     for node in t.iter("node"):
         children=list(node)
