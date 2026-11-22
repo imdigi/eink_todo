@@ -231,7 +231,7 @@ public final class MainActivity extends Activity {
         filter = f; project = p; resetTaskScroll = true; prefs.edit().putString("filter", f).putString("project", p).apply(); render();
     }
     private String viewName(Store.Snapshot s) {
-        if (filter.equals("today")) return "今天";
+        if (filter.equals("today")) return "今日事，今日了";
         if (filter.equals("project")) return s.projects.getOrDefault(project, "项目已归档或删除"); return "收件箱";
     }
     private void render() {

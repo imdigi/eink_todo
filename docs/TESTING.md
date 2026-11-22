@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.15.0.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.15.1.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
