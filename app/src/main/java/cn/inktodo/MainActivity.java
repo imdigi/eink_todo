@@ -682,16 +682,14 @@ public final class MainActivity extends Activity {
                     if(!exporting.compareAndSet(false,true))return;
                     apply.setEnabled(false);dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);dialog.setCancelable(false);dialog.setMessage("正在保存并校验屏保图片，请稍候…");
                     IMAGE_IO.execute(() -> {
-                        ScreensaverExport.Published published=null;String failure="";
-                        try {byte[] data=ScreensaverExport.encode(bitmap);published=ScreensaverExport.publish(getApplicationContext(),data,bitmap.getWidth(),bitmap.getHeight());}
+                        boolean submitted=false;String failure="";
+                        try {byte[] data=ScreensaverExport.encode(bitmap);submitted=ScreensaverController.get(getApplicationContext()).submitManual(data,model,previewDemo,size.x,size.y,previewFont);}
                         catch(Exception | OutOfMemoryError error){failure=error instanceof java.io.IOException?error.getMessage():"图片保存失败，请检查可用空间和存储权限";}
-                        final ScreensaverExport.Published image=published;final String message=failure;
+                        final boolean accepted=submitted;final String message=failure;
                         runOnUiThread(() -> {
                             preview.setImageDrawable(null);if(!bitmap.isRecycled())bitmap.recycle();exporting.set(false);dialog.dismiss();
                             if(destroyed)return;
-                            if(image==null){toast(message==null?"图片校验失败，未提交设置":message);return;}
-                            try{toast(ScreensaverController.get(getApplicationContext()).submitManual(image,model,previewDemo,size.x,size.y,previewFont)?"已提交屏保请求，请等待文石系统的处理结果":"图片已保存到相册 InkTodo；自动设置未接受，可在系统屏保中手动选择");}
-                            catch(Exception error){toast("图片已保存，屏保请求暂未提交，请重试");}
+                            toast(!message.isEmpty()?message:accepted?"已提交屏保请求，请等待文石系统的处理结果":"系统未接受屏保设置，请重试");
                         });
                     });
                 });

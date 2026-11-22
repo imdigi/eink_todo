@@ -28,14 +28,15 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
                 .put("items",new JSONArray().put(new JSONObject().put("id","parent").put("project_id","sample").put("content","学习计划（父任务）").put("child_order",1))
                     .put(item("today","parent",0,"阅读今天的材料")).put(item("old","parent",-1,"补上昨天的练习")).put(item("future","parent",1,"准备明天的分享"))),Collections.emptyList());
             final int[] submissions={0};final boolean[] accept={true};
-            ScreensaverController engine=new ScreensaverController(getTargetContext(),prefs,demo->store.snapshot(),(path,hint)->{submissions[0]++;created.add(path);return accept[0];});
+            ScreensaverController engine=new ScreensaverController(getTargetContext(),prefs,demo->store.snapshot(),(path,hint)->{submissions[0]++;created.add(path);return accept[0];},"InkTodoUpdateVerification");
             check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==1,"initial configured screensaver is published and submitted");
-            String first=prefs.getString("last_path","");check(new File(first).length()>0&&!first.contains("/Android/data/"),"automatic update uses complete public image");
+            String first=prefs.getString("last_path","");byte[] original=java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(first));check(new File(first).length()>0&&!first.contains("/Android/data/"),"automatic update uses complete public image");
             check(engine.refreshNow()==ScreensaverController.Outcome.UNCHANGED&&submissions[0]==1,"no-change refresh does not regenerate or resubmit");
             Thread.sleep(5);merge(new JSONArray());
             check(engine.refreshNow()==ScreensaverController.Outcome.UNCHANGED&&submissions[0]==1,"new sync timestamp alone does not regenerate image");
             merge(new JSONArray().put(item("new","",0,"新增的今日任务")));
-            check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==2&&!first.equals(prefs.getString("last_path","")),"new item automatically creates an independent image");
+            check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==2&&first.equals(prefs.getString("last_path","")),"new server item replaces the same fixed image");
+            check(!Arrays.equals(original,java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(first))),"fixed path contains new content after a server update");
             merge(new JSONArray().put(item("new","",0,"修改后的任务标题").put("description","修改后的任务说明")));
             check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==3,"edited title and description trigger update");
             merge(new JSONArray().put(new JSONObject().put("id","new").put("checked",1)));
@@ -48,11 +49,12 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
             merge(new JSONArray().put(item("last","",0,"失败与重试验证")));String acceptedHash=prefs.getString("last_hash","");accept[0]=false;
             check(engine.refreshNow()==ScreensaverController.Outcome.FAILED&&prefs.getString("last_hash","").equals(acceptedHash),"rejected request does not mark content as submitted");
             int failures=submissions[0];check(engine.refreshNow()==ScreensaverController.Outcome.RETRY_LATER&&submissions[0]==failures,"failed content has retry cooldown instead of repeated exports");
+            check(prefs.getBoolean("needs_submit",false),"rejected submission keeps the image dirty for retry");
             prefs.edit().putLong("failed_at",0).commit();accept[0]=true;check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&!prefs.contains("last_error"),"retry succeeds and clears update error");
             engine.setAutomatic(false);merge(new JSONArray().put(item("disabled","",0,"关闭时不提交")));int count=submissions[0];
             check(engine.refreshNow()==ScreensaverController.Outcome.DISABLED&&submissions[0]==count,"disabled automatic update leaves current image unchanged");
             prefs.edit().putBoolean("auto_update",true).commit();CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
-            ScreensaverController slow=new ScreensaverController(getTargetContext(),prefs,demo->{entered.countDown();if(!release.await(5,TimeUnit.SECONDS))throw new IOException("timeout");return store.snapshot();},(path,hint)->{throw new AssertionError("Stale request submitted");});
+            ScreensaverController slow=new ScreensaverController(getTargetContext(),prefs,demo->{entered.countDown();if(!release.await(5,TimeUnit.SECONDS))throw new IOException("timeout");return store.snapshot();},(path,hint)->{throw new AssertionError("Stale request submitted");},"InkTodoUpdateVerification");
             ExecutorService worker=Executors.newSingleThreadExecutor();Future<ScreensaverController.Outcome> waiting=worker.submit(()->slow.refreshNow());
             try{check(entered.await(3,TimeUnit.SECONDS),"background refresh has started");slow.setAutomatic(false);release.countDown();check(waiting.get(5,TimeUnit.SECONDS)==ScreensaverController.Outcome.STALE,"disabling during generation prevents stale submission");}finally{release.countDown();worker.shutdownNow();}
             // Restore sample cache only; render a shareable fixture showing both sections and nested parents.

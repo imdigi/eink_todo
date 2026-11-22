@@ -5,6 +5,8 @@ import android.graphics.*;
 import android.os.Build;
 import android.view.WindowManager;
 import java.time.*;
+import java.io.File;
+import java.util.*;
 import java.util.concurrent.*;
 
 /** Refresh the last configured view from cached data. Never polls Todoist or changes refresh mode. */
@@ -15,8 +17,10 @@ final class ScreensaverController {
     private static ScreensaverController instance;
     private static final ScheduledExecutorService WORK=Executors.newSingleThreadScheduledExecutor(r->new Thread(()->{android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);r.run();},"screensaver-updates"));
     final Context context;final SharedPreferences prefs;private final Source source;private final Setter setter;
-    private final Object gate=new Object();private long epoch;private ScheduledFuture<?> pending;
-    ScreensaverController(Context context,SharedPreferences prefs,Source source,Setter setter){this.context=context.getApplicationContext();this.prefs=prefs;this.source=source;this.setter=setter;}
+    private final ScreensaverRetention retention;private final String folder;
+    private final Object gate=new Object();private long epoch;private ScheduledFuture<?> pending,cleanup;
+    ScreensaverController(Context context,SharedPreferences prefs,Source source,Setter setter){this(context,prefs,source,setter,"InkTodo");}
+    ScreensaverController(Context context,SharedPreferences prefs,Source source,Setter setter,String folder){this.context=context.getApplicationContext();this.prefs=prefs;this.source=source;this.setter=setter;this.folder=folder;this.retention=new ScreensaverRetention(context,folder);}
     static synchronized ScreensaverController get(Context c){
         if(instance==null){
             Context app=c.getApplicationContext();
@@ -24,6 +28,7 @@ final class ScreensaverController {
             BroadcastReceiver receiver=new BroadcastReceiver(){@Override public void onReceive(Context context,Intent intent){instance.schedule(0);}};
             IntentFilter filter=new IntentFilter();filter.addAction(Intent.ACTION_SCREEN_OFF);filter.addAction(Intent.ACTION_DATE_CHANGED);filter.addAction(Intent.ACTION_TIME_CHANGED);filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
             if(Build.VERSION.SDK_INT>=33)app.registerReceiver(receiver,filter,Context.RECEIVER_NOT_EXPORTED);else app.registerReceiver(receiver,filter);
+            instance.scheduleCleanup();
         }return instance;
     }
     static void request(Context c){get(c).schedule(750);}
@@ -49,14 +54,16 @@ final class ScreensaverController {
             signature=model.fingerprint(size.x,size.y,font);
             synchronized(gate){
                 if(version!=epoch)return Outcome.STALE;
-                if(signature.equals(prefs.getString("last_hash","")))return Outcome.UNCHANGED;
+                if(!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
                 if(signature.equals(prefs.getString("failed_hash",""))&&System.currentTimeMillis()-prefs.getLong("failed_at",0)<60000)return Outcome.RETRY_LATER;
             }
             FontStore.Choice choice=FontStore.load(context,font,settings.getString("font_name","系统默认"));
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,choice.face);
-            try{image=ScreensaverExport.publish(context,ScreensaverExport.encode(bitmap),size.x,size.y);}finally{bitmap.recycle();}
+            byte[] data;try{data=ScreensaverExport.encode(bitmap);}finally{bitmap.recycle();}
             synchronized(gate){
-                if(version!=epoch||!automatic()){discard(image);return Outcome.STALE;}
+                if(version!=epoch||!automatic())return Outcome.STALE;
+                prefs.edit().putBoolean("needs_submit",true).commit();
+                image=ScreensaverExport.publish(context,data,size.x,size.y,folder);
                 if(!setter.apply(image.path,false))throw new java.io.IOException("文石未接受屏保更新请求");
                 save(image,signature);return Outcome.UPDATED;
             }
@@ -66,16 +73,34 @@ final class ScreensaverController {
             return Outcome.FAILED;
         }
     }
-    boolean submitManual(ScreensaverExport.Published image,SnapshotModel model,boolean demo,int width,int height,String font)throws Exception{
+    boolean submitManual(byte[] data,SnapshotModel model,boolean demo,int width,int height,String font)throws Exception{
         synchronized(gate){
             epoch++;if(pending!=null)pending.cancel(false);
+            prefs.edit().putBoolean("needs_submit",true).commit();
+            ScreensaverExport.Published image=ScreensaverExport.publish(context,data,width,height,folder);
             if(!setter.apply(image.path,true))return false;
             prefs.edit().putBoolean("configured",true).putBoolean("source_demo",demo).putString("filter",model.filter).putString("project",model.project).apply();
             save(image,model.fingerprint(width,height,font));
         }schedule(750);return true;
     }
     private void save(ScreensaverExport.Published image,String signature){
-        prefs.edit().putString("last_uri",image.uri.toString()).putString("last_path",image.path).putString("last_hash",signature).putLong("last_submitted",System.currentTimeMillis()).remove("last_error").remove("failed_hash").remove("failed_at").apply();
+        prefs.edit().putString("last_uri",image.uri.toString()).putString("last_path",image.path).putString("last_hash",signature).putLong("last_submitted",System.currentTimeMillis()).remove("last_error").remove("failed_hash").remove("failed_at").remove("previous_path").remove("previous_uri").remove("needs_submit").apply();
+        scheduleCleanup();
     }
-    private void discard(ScreensaverExport.Published image){try{context.getContentResolver().delete(image.uri,null,null);}catch(Exception ignored){}}
+    private void scheduleCleanup(){
+        synchronized(gate){
+            if(cleanup!=null&&!cleanup.isDone())return;
+            cleanup=WORK.schedule(()->{
+                synchronized(gate){
+                    String path=prefs.getString("last_path","");
+                    if(prefs.getBoolean("needs_submit",false)||!ScreensaverExport.current(path)||!new File(path).isFile())return;
+                    Set<String> keep=new HashSet<>();keep.add(path);
+                    SharedPreferences photo=context.getSharedPreferences("photo-screensaver-backup",0);
+                    if(photo.getBoolean("active",false))keep.add(photo.getString("photo_path",""));
+                    retention.prune(keep,System.currentTimeMillis());
+                }
+            },ScreensaverRetention.GRACE_MS+500,TimeUnit.MILLISECONDS);
+        }
+    }
+
 }
