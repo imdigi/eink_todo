@@ -36,6 +36,8 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
             check(engine.refreshNow()==ScreensaverController.Outcome.UNCHANGED&&submissions[0]==1,"new sync timestamp alone does not regenerate image");
             merge(new JSONArray().put(item("new","",0,"新增的今日任务")));
             check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==2&&first.equals(prefs.getString("last_path","")),"new server item replaces the same fixed image");
+            check(!created.get(0).equals(created.get(1)),"changed content uses a fresh SDK import path to bypass BOOX cache");
+            check(new File(first).getName().equals(ScreensaverExport.NAME),"gallery source keeps its fixed filename despite fresh SDK import paths");
             check(!Arrays.equals(original,java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(first))),"fixed path contains new content after a server update");
             merge(new JSONArray().put(item("new","",0,"修改后的任务标题").put("description","修改后的任务说明")));
             check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&submissions[0]==3,"edited title and description trigger update");
@@ -79,6 +81,7 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
             out.putString("stream","\n"+log+"SUCCESS "+checks+" automatic screensaver assertions\n");
         }catch(Throwable e){out.putString("stream","\n"+log+"FAIL "+android.util.Log.getStackTraceString(e));}
         finally{
+            created.add(prefs.getString("last_path",""));
             for(String path:created)try{android.database.Cursor cursor=getTargetContext().getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,new String[]{MediaStore.Images.Media._ID},MediaStore.Images.Media.DATA+"=?",new String[]{path},null);if(cursor!=null)try{if(cursor.moveToFirst())getTargetContext().getContentResolver().delete(android.content.ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,cursor.getLong(0)),null,null);}finally{cursor.close();}}catch(Exception ignored){}
             if(store!=null)store.close();getTargetContext().deleteDatabase("screensaver-update-verification.db");prefs.edit().clear().commit();
         }

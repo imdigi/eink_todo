@@ -45,6 +45,10 @@ public final class ScreensaverVerificationRunner extends Instrumentation {
             try{ScreensaverExport.publish(getTargetContext(),new byte[]{1,2,3},1264,1680,"InkTodoExportVerification");throw new AssertionError("invalid overwrite accepted");}catch(java.io.IOException expected){}
             check(Arrays.equals(replacement,java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(first.path))),"invalid replacement leaves last complete file intact");
             check(!new java.io.File(new java.io.File(first.path).getParentFile(),".InkTodo-current.pending.png").exists(),"temporary file removed after atomic publication");
+            ScreensaverExport.Published transfer=ScreensaverExport.publishImport(getTargetContext(),replacement,1264,1680,"InkTodoExportVerification");created.add(transfer);
+            ScreensaverExport.Published transfer2=ScreensaverExport.publishImport(getTargetContext(),replacement,1264,1680,"InkTodoExportVerification");created.add(transfer2);
+            check(!transfer.path.equals(transfer2.path)&&!transfer.path.equals(first.path),"SDK imports use unique readable paths while gallery source remains fixed");
+            check(Arrays.equals(replacement,java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(transfer2.path))),"SDK import contains the complete latest snapshot");
             ScreensaverExport.Published legacy=fixture(bytes,"InkTodo-"+(System.currentTimeMillis()-60000)+"-"+UUID.randomUUID()+".png");created.add(legacy);
             ScreensaverExport.Published protectedImage=fixture(bytes,"InkTodo-"+(System.currentTimeMillis()-60000)+"-"+UUID.randomUUID()+".png");created.add(protectedImage);
             ScreensaverExport.Published unrelated=fixture(bytes,"user-photo.png");created.add(unrelated);

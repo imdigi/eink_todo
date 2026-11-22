@@ -57,14 +57,14 @@ public final class PhotoScreensaverRunner extends Instrumentation {
             }else throw new IllegalArgumentException("Expected mode=demo or mode=restore");
             Point size=new Point();((WindowManager)app.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             String font=settings.getString("font_file","");FontStore.Choice face=FontStore.load(app,font,settings.getString("font_name","系统默认"));
-            Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,synced,face.face);ScreensaverExport.Published image;
-            try{image=ScreensaverExport.publish(app,ScreensaverExport.encode(bitmap),size.x,size.y);}finally{bitmap.recycle();}
+            Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,synced,face.face);ScreensaverExport.Published image,transfer;
+            try{byte[] data=ScreensaverExport.encode(bitmap);image=ScreensaverExport.publish(app,data,size.x,size.y);transfer=ScreensaverExport.publishImport(app,data,size.x,size.y,"InkTodo");}finally{bitmap.recycle();}
             CountDownLatch result=new CountDownLatch(1);StringBuilder messages=new StringBuilder();
             getUiAutomation().setOnAccessibilityEventListener(event->{
                 if(event.getEventType()!=AccessibilityEvent.TYPE_NOTIFICATION_STATE_CHANGED||!String.valueOf(event.getPackageName()).startsWith("com.onyx"))return;
                 String text=event.getText().toString();if(text.contains("保存成功")||text.contains("屏保")||text.contains("失败")){synchronized(messages){messages.append(text).append('\n');}result.countDown();}
             });
-            if(!OnyxScreen.setScreensaver(app,image.path,false))throw new IllegalStateException("BOOX did not accept image");
+            if(!OnyxScreen.setScreensaver(app,transfer.path,false))throw new IllegalStateException("BOOX did not accept image");
             if(mode.equals("restore")){
                 restorePreferences(prefs,original);
                 prefs.edit().putBoolean("configured",true).putBoolean("source_demo",false).putString("filter",model.filter).putString("project",model.project)

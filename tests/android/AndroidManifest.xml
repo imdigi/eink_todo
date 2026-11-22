@@ -16,5 +16,6 @@
     <instrumentation android:name="cn.inktodo.ScreensaverUpdateRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo content-driven screensaver verification" />
     <instrumentation android:name="cn.inktodo.ScreensaverResultRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo screensaver result observation" />
     <instrumentation android:name="cn.inktodo.PhotoScreensaverRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao temporary photo screensaver" />
+    <instrumentation android:name="cn.inktodo.ScreensaverDeliveryRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao consecutive system screensaver delivery" />
     <instrumentation android:name="cn.inktodo.ScreensaverReadProbe" android:targetPackage="cn.inktodo.app" android:label="Weiliao screensaver import read probe" />
 </manifest>
