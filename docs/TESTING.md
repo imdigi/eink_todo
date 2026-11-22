@@ -8,7 +8,7 @@ curl -fL https://repo.maven.apache.org/maven2/org/json/json/20240303/json-202403
 python3 tools/test.py
 ```
 
-目前包含 112 项协议与逻辑检查，覆盖任务筛选、父子层级、日期分组、命令 UUID、同步响应、重试策略、节气日期与屏保指纹。
+目前包含 118 项协议与逻辑检查，覆盖任务筛选、父子层级、日期分组、命令 UUID、同步响应、重试策略、节气日期与屏保指纹。
 
 ## Android 验证
 
@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.15.1.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.16.0.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
@@ -28,7 +28,8 @@ adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.Verificati
 | --- | --- |
 | `VerificationRunner` | 隔离数据库、离线队列、原 UUID 重试、加密存储；29 项 |
 | `UndoVerificationRunner` | 隔离任务、父子撤回、三秒提示队列、按钮位置稳定；34 项 |
-| `SyncVerificationRunner` | 演示数据库下的同步按钮、限流和错误提示；12 项 |
+| `NetworkVerificationRunner` | 注入网络和时钟的唤醒等待、每秒本地检查、15 秒超时、恢复及离开取消；14 项 |
+| `SyncVerificationRunner` | 演示数据库下的同步按钮、限流和错误提示、同步中状态优先；13 项 |
 | `ScreensaverUpdateRunner` | 隔离数据与模拟提交器下的内容变化、固定路径覆盖、去重、重试；26 项 |
 | `ScreensaverVerificationRunner` | PNG 编码、固定路径原子覆盖、旧图片清理和完整性；19 项 |
 | `TitleVerificationRunner` | Markdown 标题编辑、保存、取消及恢复；结束后恢复设置 |

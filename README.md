@@ -2,7 +2,7 @@
 
 **未了之事，次第而行。**
 
-面向 Android 墨水屏设备的 Todoist 待办看板，适配 BOOX Leaf5+ 的左右分栏与低频刷新。当前源码版本为 **0.15.1**。
+面向 Android 墨水屏设备的 Todoist 待办看板，适配 BOOX Leaf5+ 的左右分栏与低频刷新。当前源码版本为 **0.16.0**。
 
 这是独立第三方应用，非由 Todoist 创建、关联或支持。
 
@@ -41,6 +41,8 @@ Token 只保存在设备上，并由 Android Keystore 加密。不要把 Token�
 
 完成后先更新本机列表。正在展示或排队等待“撤回”提示的完成命令会被暂时保护，提示结束后才进入同步。父任务按一次父级动作撤回，子任务仅撤回自身；今天视图按父级完成的本组子任务作为一组撤回。离开应用时关闭提示，未撤回的操作进入正常同步流程。
 
+从锁屏或后台返回时，先等待系统确认网络可用：每秒本地检查一次，最多 15 秒。期间显示“等待网络…”，超时显示“网络未连接”并停止轮询；网络恢复后自动同步。离开应用时停止等待和网络监听，不唤醒设备。同步期间优先显示“同步中…”，避免旧失败信息遮住当前状态。
+
 默认在前台每 10 分钟同步，可设置 5/10/15/30 分钟。网络故障后的手动重试保留 3 秒防连点；服务器限流和 `Retry-After` 对手动、自动请求都生效。失败原因保留在侧栏，长按可以查看完整状态。
 
 ## 构建
@@ -57,12 +59,12 @@ python3 tools/build.py
 
 可使用 `ANDROID_JAR` 指定 `android.jar`，或使用 `ANDROID_BUILD_TOOLS` 指定构建工具目录。
 
-输出为 `dist/weiliao-0.15.1.apk` 及 SHA-256 校验文件。首次构建会在 `.signing/` 内生成本地签名私钥和随机密码；这些文件、安装包和截图均不进入 Git。
+输出为 `dist/weiliao-0.16.0.apk` 及 SHA-256 校验文件。首次构建会在 `.signing/` 内生成本地签名私钥和随机密码；这些文件、安装包和截图均不进入 Git。
 
 已有签名可通过 `.signing/keystore-password.txt` 或 `INKTODO_KEYSTORE_PASSWORD` 环境变量提供密码。构建日志不会输出密码。**请私密备份原签名和密码，后续覆盖安装需要使用同一签名。**
 
 ```sh
-adb -s YOUR_DEVICE install -r dist/weiliao-0.15.1.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.16.0.apk
 ```
 
 诊断构建 `python3 tools/build.py --without-onyx-sdk` 排除文石 SDK，并临时禁用屏保和 SDK 刷新增强。
@@ -96,6 +98,8 @@ python3 tools/check_private_files.py
 | `tests/android/` | 隔离数据的设备验证及手动工具 |
 
 ## 隐私与第三方依赖
+
+应用使用 `ACCESS_NETWORK_STATE` 读取本机网络就绪状态，不需要运行时授权。
 
 详情见 [隐私与本地文件](docs/PRIVACY.md)。仓库不包含个人 Token、签名私钥、真实任务数据库、真机截图或本地操作日志。
 

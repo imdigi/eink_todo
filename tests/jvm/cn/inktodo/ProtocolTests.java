@@ -48,6 +48,13 @@ public final class ProtocolTests {
         check(retry.blocked(retryNow+3000,true).isEmpty()&&!retry.blocked(retryNow+3000,false).isEmpty(),"unconfirmed operations allow manual retry while delaying automatic retry");
         retry.completed(false,false,retryNow+3100);
         check(retry.message(retryNow+3100).isEmpty()&&!retry.automaticDue(retryNow+999999),"successful sync clears failure and retry schedule");
+        retry.failedNetwork(retryNow);check(!retry.blocked(retryNow+1000,false).isEmpty(),"network error retains normal retry cooldown before recovery");
+        retry.networkRecovered();check(retry.blocked(retryNow+1000,false).isEmpty()&&retry.message(retryNow+1000).isEmpty(),"network recovery clears only the network failure cooldown and stale reason");
+        retry.failed(429,retryNow+90000,retryNow);retry.networkRecovered();check(!retry.blocked(retryNow+1000,false).isEmpty(),"network recovery cannot bypass server rate limits");
+        retry.failed(503,retryNow+90000,retryNow);retry.networkRecovered();check(!retry.blocked(retryNow+1000,true).isEmpty(),"network recovery cannot bypass service Retry-After");
+        retry.failed(401,0,retryNow);retry.networkRecovered();check(!retry.blocked(retryNow+120000,true).isEmpty(),"network recovery cannot clear expired authorization");
+        retry.failed("同步响应异常，请稍后重试",retryNow);retry.networkRecovered();check(!retry.blocked(retryNow+1000,false).isEmpty(),"network recovery preserves non-network failure cooldowns");
+        retry.reset();
         SyncRetry restored=new SyncRetry();restored.restoreServerWait(retryNow+90000,true);
         check(!restored.blocked(retryNow,true).isEmpty(),"persisted server wait survives process recreation");
         restored=new SyncRetry();restored.restoreServerWait(retryNow+90000,false);

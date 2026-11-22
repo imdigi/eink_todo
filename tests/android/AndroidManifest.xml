@@ -8,6 +8,7 @@
     <instrumentation android:name="cn.inktodo.RenderingVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo antialias verification" />
     <instrumentation android:name="cn.inktodo.TitleVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo editable title verification" />
     <instrumentation android:name="cn.inktodo.VerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo offline verification" />
+    <instrumentation android:name="cn.inktodo.NetworkVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao wake network verification" />
     <instrumentation android:name="cn.inktodo.SyncVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo manual retry verification" />
     <instrumentation android:name="cn.inktodo.UndoVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao completion undo verification" />
     <instrumentation android:name="cn.inktodo.EinkVerificationRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo BOOX refresh verification" />

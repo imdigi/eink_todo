@@ -30,6 +30,7 @@ public final class MainActivity extends Activity {
     private String token = "", error = "", filter = "today", project = "";
     private boolean demo, resumed, destroyed, split;
     private long lastAttempt;
+    private NetworkSync network;private boolean networkManual;
     private LinearLayout root, tasksBox, sideBox;
     private ScrollView taskScroll;
     private boolean resetTaskScroll = true;
@@ -66,6 +67,10 @@ public final class MainActivity extends Activity {
         REAL_RETRY.restoreServerWait(prefs.getLong("sync_server_until",0),prefs.getBoolean("sync_rate_limited",true));
         demo = prefs.getBoolean("demo", false);
         try { token = vault.load(); } catch (Exception e) { error = "凭据无法解密，请在设置重新连接"; }
+        network=new NetworkSync(getApplicationContext(),handler,new NetworkSync.Listener(){
+            public void changed(){if(resumed&&!destroyed)render();}
+            public void ready(){if(resumed&&!destroyed){retry().networkRecovered();boolean manual=networkManual;networkManual=false;sync(manual);}}
+        });
         openStore(); build();
     }
     private void openStore() {
@@ -76,12 +81,12 @@ public final class MainActivity extends Activity {
     @Override public void onConfigurationChanged(Configuration c) { super.onConfigurationChanged(c); build(); }
     @Override protected void onResume() {
         if(!filter.equals("today")||!project.isEmpty()){filter="today";project="";resetTaskScroll=true;}
-        super.onResume();if(!branchFolds.isEmpty()){branchFolds.clear();taskSignature="";}resumed = true; screenFlag(); render(); sync(false); handler.removeCallbacks(tick); handler.postDelayed(tick, 30000);
+        super.onResume();if(!branchFolds.isEmpty()){branchFolds.clear();taskSignature="";}resumed = true; network.start();networkManual=false;retry().networkRecovered();screenFlag(); render(); sync(false); handler.removeCallbacks(tick); handler.postDelayed(tick, 30000);
         configureEink();
         root.post(() -> { if (resumed && !destroyed) eink.clean(root); });
     }
-    @Override protected void onPause() { super.onPause(); resumed = false; handler.removeCallbacks(tick);if(commitUndoQueue()){render();sync(false);}eink.release(root);ScreensaverController.requestNow(getApplicationContext()); }
-    @Override protected void onDestroy() { commitUndoQueue();destroyed = true; handler.removeCallbacksAndMessages(null); super.onDestroy(); }
+    @Override protected void onPause() { super.onPause(); resumed = false;network.stop();networkManual=false; handler.removeCallbacks(tick);if(commitUndoQueue()){render();sync(false);}eink.release(root);ScreensaverController.requestNow(getApplicationContext()); }
+    @Override protected void onDestroy() { if(network!=null)network.stop();commitUndoQueue();destroyed = true; handler.removeCallbacksAndMessages(null); super.onDestroy(); }
     private int dp(float v) { return Math.round(v * getResources().getDisplayMetrics().density); }
     private int font() { return prefs.getInt("font", 22); }
     private String appVersion(){try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(android.content.pm.PackageManager.NameNotFoundException ignored){return "";}}
@@ -245,12 +250,13 @@ public final class MainActivity extends Activity {
                 prefs.edit().putString("filter", filter).putString("project", project).apply();
             }
             String time = s.lastSync == 0 ? "尚未同步" : "同步 " + Instant.ofEpochMilli(s.lastSync).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MM-dd HH:mm"));
-            String st = demo ? "演示模式" : BUSY.get() ? "同步中…" : time;
+            String activeStatus=BUSY.get()?"同步中…":!demo&&network!=null&&network.state()==NetworkSync.State.WAITING?"等待网络…":!demo&&network!=null&&network.state()==NetworkSync.State.OFFLINE?"网络未连接":"";
+            String st = !activeStatus.isEmpty()?activeStatus:demo?"演示模式":time;
             if(s.pending()>0)st+="\n待确认 "+s.pending()+" 项";
             String syncMessage=retry().message(System.currentTimeMillis());
-            String detail=error.isEmpty()?syncMessage:error;
+            String detail=!activeStatus.isEmpty()?"":error.isEmpty()?syncMessage:error;
             String fullStatus=st+(detail.isEmpty()?"":"\n"+detail);
-            String summary=detail.isEmpty()?(s.pending()>0?"待确认 "+s.pending()+" 项":st):detail;
+            String summary=!activeStatus.isEmpty()?activeStatus:detail.isEmpty()?(s.pending()>0?"待确认 "+s.pending()+" 项":st):detail;
             setText(status,summary);status.setContentDescription(fullStatus);status.setTooltipText(fullStatus);
             syncButton.setEnabled(demo || !token.isEmpty());
             if (tasksBox == null) return;
@@ -468,9 +474,11 @@ public final class MainActivity extends Activity {
     private void sync(boolean manual) {
         if (!demo && token.isEmpty()) return;
         if(BUSY.get()){if(manual)toast("正在同步，请稍候");return;}
+        if(!demo&&network!=null&&!network.ensureReady(manual)){if(resumed)networkManual|=manual;render();return;}
+        networkManual=false;
         long now = System.currentTimeMillis();
         SyncRetry policy=retry();String blocked=policy.blocked(now,manual);
-        if(!blocked.isEmpty()){if(manual){toast(blocked);render();}return;}
+        if(!blocked.isEmpty()){if(manual)toast(blocked);render();return;}
         if (!BUSY.compareAndSet(false, true)){if(manual)toast("正在同步，请稍候");return;}
         policy.started(now);
         lastAttempt = now; error = ""; render();
@@ -492,7 +500,7 @@ public final class MainActivity extends Activity {
             } catch (ApiClient.InvalidResponse e) {
                 policy.failed(e.getMessage(),System.currentTimeMillis());
             } catch (java.io.IOException e) {
-                policy.failed("同步失败，请检查网络后重试",System.currentTimeMillis());
+                policy.failedNetwork(System.currentTimeMillis());
             } catch (Exception e) {
                 policy.failed("同步失败，请稍后重试",System.currentTimeMillis());
             } finally {

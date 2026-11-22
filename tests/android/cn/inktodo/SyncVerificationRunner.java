@@ -30,6 +30,8 @@ public final class SyncVerificationRunner extends Instrumentation {
                 policy=(SyncRetry)field("DEMO_RETRY");policy.reset();call("build");
                 long now=System.currentTimeMillis();policy.started(now-5000);policy.failed("同步失败，请检查网络后重试",now);call("render");
                 check(status().contains("同步失败，请检查网络后重试"),"sidebar retains the network failure reason");
+                ((AtomicBoolean)field("BUSY")).set(true);call("render");
+                try{check(status().equals("同步中…"),"active sync status takes precedence over a previous failure");}finally{((AtomicBoolean)field("BUSY")).set(false);call("render");}
                 check(((Button)field("syncButton")).isEnabled(),"sync button remains available after failure");
                 ((Button)field("syncButton")).performClick();
             });idle();
