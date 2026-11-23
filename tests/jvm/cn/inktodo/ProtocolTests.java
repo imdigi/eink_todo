@@ -209,6 +209,23 @@ public final class ProtocolTests {
             String expected = code == 404 ? "ok" : code == 429 || code == 500 ? "sending" : "failed";
             check(Core.results(new JSONObject().put("sync_status", new JSONObject().put(op.uuid, error)), sent).get(0).state.equals(expected), "command HTTP " + code + " classification");
         }
+        JSONObject newArgs=Core.addArgs("  记下灵感  ",today,"inbox-id");
+        Core.Operation add=new Core.Operation("add-uuid","temp-task","add","queued","记下灵感","",newArgs.toString());
+        JSONObject addCommand=Core.command(add);
+        check(addCommand.getString("type").equals("item_add")&&addCommand.getString("temp_id").equals("temp-task"),"create uses official item_add and stable temp id");
+        check(addCommand.getJSONObject("args").getString("content").equals("记下灵感")&&newArgs.getString("project_id").equals("inbox-id"),"create trims text and targets inbox");
+        check(newArgs.getJSONObject("due").getString("date").equals(today.toString())&&!newArgs.getJSONObject("due").getBoolean("is_recurring"),"create uses explicit local calendar date without recurring time");
+        check(!Core.addArgs("task",today,"").has("project_id"),"missing cached inbox uses API default inbox");
+        try{Core.addArgs("  ",today,"");throw new AssertionError("empty accepted");}catch(IllegalArgumentException expected){check(true,"blank create is rejected before queueing");}
+        JSONObject missingProject=new JSONObject().put("sync_status",new JSONObject().put(add.uuid,new JSONObject().put("http_code",404).put("error_tag","ITEM_NOT_FOUND")));
+        check(Core.results(missingProject,Collections.singletonList(add)).get(0).state.equals("failed"),"create 404 remains an error rather than completion acknowledgement");
+        new ApiClient((token,bytes)->{
+            String form=new String(bytes,StandardCharsets.UTF_8);String commands="";
+            for(String pair:form.split("&")){String[] kv=pair.split("=",2);if(kv[0].equals("commands"))commands=URLDecoder.decode(kv[1],"UTF-8");}
+            JSONObject transmittedAdd=new JSONArray(commands).getJSONObject(0);
+            check(transmittedAdd.getString("type").equals("item_add")&&transmittedAdd.getString("uuid").equals(add.uuid)&&transmittedAdd.getJSONObject("args").getString("content").equals("记下灵感"),"sync transport sends creation args losslessly");
+            return new ApiClient.Reply(200,response(),null);
+        }).sync("test-token","*",Collections.singletonList(add));
         final List<String> transmitted = new ArrayList<>();
         ApiClient client = new ApiClient((token, bytes) -> {
             check(token.equals("test-token"), "transport gets credential separately");

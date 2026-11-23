@@ -10,12 +10,12 @@ import java.util.*;
 
 final class Store extends SQLiteOpenHelper {
     Store(Context context, boolean demo) { this(context, demo ? "demo.db" : "todoist.db"); }
-    Store(Context context, String name) { super(context, name, null, 2); }
+    Store(Context context, String name) { super(context, name, null, 3); }
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE tasks(id TEXT PRIMARY KEY, payload TEXT NOT NULL)");
         db.execSQL("CREATE TABLE projects(id TEXT PRIMARY KEY, payload TEXT NOT NULL)");
         db.execSQL("CREATE TABLE meta(k TEXT PRIMARY KEY, v TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE operations(uuid TEXT PRIMARY KEY, task_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, state TEXT NOT NULL, title TEXT NOT NULL, error TEXT NOT NULL, created INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE operations(uuid TEXT PRIMARY KEY, task_id TEXT NOT NULL UNIQUE, kind TEXT NOT NULL, state TEXT NOT NULL, title TEXT NOT NULL, error TEXT NOT NULL, created INTEGER NOT NULL, args TEXT NOT NULL DEFAULT '')");
         createUndoTables(db);
     }
     private void createUndoTables(SQLiteDatabase db){
@@ -24,7 +24,8 @@ final class Store extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX completion_undo_group ON completion_undo_members(group_id)");
     }
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if(oldVersion==1&&newVersion==2){createUndoTables(db);return;}
+        if(oldVersion<2)createUndoTables(db);
+        if(oldVersion<3){db.execSQL("ALTER TABLE operations ADD COLUMN args TEXT NOT NULL DEFAULT ''");return;}
         throw new IllegalStateException("Unsupported schema");
     }
     static final class UndoAction {
@@ -49,7 +50,7 @@ final class Store extends SQLiteOpenHelper {
             return names;
         }
         Set<String> hidden() {
-            Set<String> ids = new HashSet<>(); for (Core.Operation op : operations) if (op.pending()) ids.add(op.taskId); return ids;
+            Set<String> ids = new HashSet<>(); for (Core.Operation op : operations) if (op.pending() && !op.kind.equals("add")) ids.add(op.taskId); return ids;
         }
         int pending() { int n = 0; for (Core.Operation op : operations) if (op.pending()) n++; return n; }
     }
@@ -67,14 +68,27 @@ final class Store extends SQLiteOpenHelper {
                     else projects.put(c.getString(0), j.optString("name", "项目"));
                 } }
         }
-        return new Snapshot(tasks, projects, operations(db), meta(db, "cursor", "*"), Long.parseLong(meta(db, "last_sync", "0")), inboxId);
+        List<Core.Operation> ops=operations(db);
+        for(Core.Operation op:ops)if(op.kind.equals("add")){
+            JSONObject draft=new JSONObject(op.args).put("id",op.taskId);
+            if(draft.optString("project_id","").isEmpty())draft.put("project_id",inboxId);
+            tasks.add(new Core.Task(draft));
+        }
+        return new Snapshot(tasks, projects, ops, meta(db, "cursor", "*"), Long.parseLong(meta(db, "last_sync", "0")), inboxId);
     }
     private List<Core.Operation> operations(SQLiteDatabase db) {
         List<Core.Operation> out = new ArrayList<>();
-        try (Cursor c = db.rawQuery("SELECT uuid, task_id, kind, state, title, error FROM operations ORDER BY created, rowid", null)) {
-            while (c.moveToNext()) out.add(new Core.Operation(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5)));
+        try (Cursor c = db.rawQuery("SELECT uuid, task_id, kind, state, title, error, args FROM operations ORDER BY created, rowid", null)) {
+            while (c.moveToNext()) out.add(new Core.Operation(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getString(4), c.getString(5), c.getString(6)));
         }
         return out;
+    }
+    synchronized String addTask(String content,java.time.LocalDate day)throws Exception{
+        JSONObject args=Core.addArgs(content,day,snapshot().inboxId);
+        String id=UUID.randomUUID().toString();ContentValues values=new ContentValues();
+        values.put("uuid",UUID.randomUUID().toString());values.put("task_id",id);values.put("kind","add");values.put("state","queued");
+        values.put("title",args.getString("content"));values.put("error","");values.put("created",System.currentTimeMillis());values.put("args",args.toString());
+        getWritableDatabase().insertOrThrow("operations",null,values);return id;
     }
     synchronized boolean enqueue(Core.Task task, String kind) throws Exception {
         Snapshot s = snapshot(); Map<String, Core.Task> all = new HashMap<>(); for (Core.Task t : s.tasks) all.put(t.id, t);
@@ -95,7 +109,7 @@ final class Store extends SQLiteOpenHelper {
             for (Core.Operation op : operations(db)) if (op.pending() && !held.contains(op.uuid) && out.size() < 100) {
                 ContentValues v = new ContentValues(); v.put("state", "sending");
                 db.update("operations", v, "uuid=?", new String[]{op.uuid});
-                out.add(new Core.Operation(op.uuid, op.taskId, op.kind, "sending", op.title, op.error));
+                out.add(new Core.Operation(op.uuid, op.taskId, op.kind, "sending", op.title, op.error, op.args));
             }
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
@@ -177,9 +191,19 @@ final class Store extends SQLiteOpenHelper {
         try {
             List<Core.Result> results = Core.results(response, sent);
             Map<String, Core.Operation> byId = new HashMap<>(); for (Core.Operation op : sent) byId.put(op.uuid, op);
+            Map<String,JSONObject> added=new HashMap<>();
             for (Core.Result result : results) {
                 if (result.state.equals("ok")) {
                     Core.Operation op = byId.get(result.uuid);
+                    if(op.kind.equals("add")){
+                        JSONObject mapping=response.optJSONObject("temp_id_mapping");String id=mapping==null?"":Core.clean(mapping,op.taskId);
+                        if(id.isEmpty()){
+                            ContentValues waiting=new ContentValues();waiting.put("state","sending");waiting.put("error","等待新增任务编号确认，将用相同编号重试");
+                            db.update("operations",waiting,"uuid=?",new String[]{op.uuid});continue;
+                        }
+                        added.put(id,new JSONObject(op.args).put("id",id));
+                        db.delete("operations","uuid=?",new String[]{op.uuid});continue;
+                    }
                     Map<String, Core.Task> all = new HashMap<>(); for (Core.Task t : snapshot().tasks) all.put(t.id, t);
                     Core.Task parent = all.get(op.taskId);
                     boolean removeChildren = op.kind.equals("delete") || (parent != null && !parent.recurring);
@@ -192,6 +216,15 @@ final class Store extends SQLiteOpenHelper {
                 }
             }
             if (Core.truth(response, "full_sync")) { db.delete("tasks", null, null); db.delete("projects", null, null); }
+            for(Map.Entry<String,JSONObject> entry:added.entrySet()){
+                JSONObject draft=entry.getValue();
+                if(draft.optString("project_id","").isEmpty()){
+                    String inbox=snapshot().inboxId;
+                    for(JSONObject project:Core.objects(response.optJSONArray("projects")))if(Core.isInboxProject(project))inbox=project.optString("id",inbox);
+                    draft.put("project_id",inbox);
+                }
+                try(Cursor existing=db.rawQuery("SELECT 1 FROM tasks WHERE id=?",new String[]{entry.getKey()})){if(!existing.moveToFirst())put(db,"tasks",entry.getKey(),draft);}
+            }
             for (JSONObject j : Core.objects(response.optJSONArray("items"))) {
                 Core.Task t = new Core.Task(j); if (t.id.isEmpty()) throw new java.io.IOException("任务缺少编号");
                 if (t.checked || t.deleted) db.delete("tasks", "id=?", new String[]{t.id}); else put(db, "tasks", t.id, j);
@@ -255,13 +288,15 @@ final class Store extends SQLiteOpenHelper {
     synchronized void demoSync() throws Exception {
         List<Core.Operation> sent = claim(); JSONObject statuses = new JSONObject(); org.json.JSONArray changes = new org.json.JSONArray();
         Map<String, Core.Task> all = new HashMap<>(); for (Core.Task t : snapshot().tasks) all.put(t.id, t);
+        JSONObject mapping=new JSONObject();
         for (Core.Operation op : sent) {
+            if(op.kind.equals("add")){String id="demo-added-"+op.taskId;mapping.put(op.taskId,id);changes.put(new JSONObject(op.args).put("id",id));}
             statuses.put(op.uuid, "ok"); Core.Task t = all.get(op.taskId);
             if (t != null && t.recurring && op.kind.equals("close")) changes.put(new JSONObject().put("id", t.id).put("content", t.content)
                 .put("description", t.description).put("project_id", t.projectId).put("priority", t.priority)
                 .put("parent_id",t.parentId).put("child_order",t.order)
                 .put("due", new JSONObject().put("date", java.time.LocalDate.now().plusDays(1).toString()).put("is_recurring", true).put("string", "每天")));
         }
-        merge(new JSONObject().put("sync_token", "demo").put("items", changes).put("projects", new org.json.JSONArray()).put("sync_status", statuses), sent);
+        merge(new JSONObject().put("sync_token", "demo").put("items", changes).put("projects", new org.json.JSONArray()).put("sync_status", statuses).put("temp_id_mapping",mapping), sent);
     }
 }

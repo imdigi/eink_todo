@@ -138,7 +138,8 @@ public final class MainActivity extends Activity {
             }
         };
         titleArea.setFillViewport(false);titleArea.setOverScrollMode(View.OVER_SCROLL_NEVER);titleArea.addView(appTitle);
-        top.addView(titleArea, new LinearLayout.LayoutParams(0, -2, 1));root.addView(top);
+        top.addView(titleArea, new LinearLayout.LayoutParams(0, -2, 1));
+        Button add=button("＋",v->addTask());add.setTag("add_task");add.setContentDescription("添加任务");add.setTextSize(30);add.setBackgroundColor(Color.TRANSPARENT);add.setEnabled(demo||!token.isEmpty());top.addView(add,new LinearLayout.LayoutParams(dp(52),dp(52)));root.addView(top);
         status = text("", 12, false); status.setTextColor(0xff777777);
         status.setPadding(dp(4), dp(6), dp(4), dp(2));status.setIncludeFontPadding(false);status.setGravity(Gravity.TOP);status.setMaxLines(1);status.setEllipsize(TextUtils.TruncateAt.END);line(root);
         LinearLayout footer=column();footer.setTag("sidebar_footer");
@@ -194,6 +195,24 @@ public final class MainActivity extends Activity {
         if(demo){android.text.SpannableStringBuilder marked=new android.text.SpannableStringBuilder(rendered);marked.append(" · 演示");rendered=marked;}
         appTitle.setText(rendered);
         appTitle.setContentDescription(rendered+"，点击编辑顶部文字");
+    }
+    private void addTask(){
+        if(!demo&&token.isEmpty()){toast("请先在设置中连接 Todoist");return;}
+        LinearLayout form=column();form.setPadding(dp(20),dp(8),dp(20),dp(8));
+        TextView hint=text("收件箱 · 今天",14,false);hint.setTextColor(0xff555555);form.addView(hint);
+        EditText input=new InkRendering.Input(this);input.setTag("add_task_input");input.setTextSize(22);input.setTypeface(uiFont.face);input.setHint("要做什么？");input.setGravity(Gravity.TOP);
+        input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);input.setMinLines(2);input.setMaxLines(4);input.setHorizontallyScrolling(false);
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(500)});form.addView(input,new LinearLayout.LayoutParams(-1,-2));
+        AlertDialog dialog=new FontDialogBuilder(this).setTitle("添加任务").setView(form).setNegativeButton("取消",null).setPositiveButton("添加",null).create();
+        dialog.setOnShowListener(d->{
+            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE|WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+            input.requestFocus();input.post(()->((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(input,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT));
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+                if(input.getText().toString().trim().isEmpty()){input.setError("请输入任务内容");return;}
+                try{store.addTask(input.getText().toString(),LocalDate.now());dialog.getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);dialog.dismiss();choose("today","");toast(demo?"已添加演示任务":"已保存，等待同步");sync(false);}
+                catch(Exception error){input.setError("添加失败，内容已保留，请重试");}
+            });
+        });dialog.show();
     }
     private void editTitle(){
         LinearLayout form=column();form.setPadding(dp(20),dp(6),dp(20),dp(8));
@@ -378,6 +397,9 @@ public final class MainActivity extends Activity {
             disclosure.setOnClickListener(v -> toggleBranch(scope,t.id));titleLine.addView(disclosure,new LinearLayout.LayoutParams(dp(48),dp(32)));
             words.post(()->{android.graphics.Rect hit=new android.graphics.Rect(0,0,disclosure.getWidth(),disclosure.getHeight());words.offsetDescendantRectToMyCoords(disclosure,hit);hit.bottom=hit.top+dp(48);words.setTouchDelegate(new TouchDelegate(hit,disclosure));});
         }words.addView(titleLine);
+        for(Core.Operation op:s.operations)if(op.taskId.equals(t.id)&&op.kind.equals("add")){
+            check.setEnabled(false);TextView waiting=text(op.state.equals("failed")?"添加失败 · 点击查看操作记录":"待添加 · 等待同步",13,false);waiting.setTextColor(0xff555555);words.addView(waiting);
+        }
         if(node.context || node.parent){
             String relation=(node.context?"关联父任务 · ":"")+(node.matchingDescendants>0?(grouped?"本组 ":"")+node.matchingDescendants+" 项子任务"+(node.collapsed?" · 已收起":""):(grouped?"本组暂无子任务":""));
             TextView hint=text(relation,13,false);hint.setTextColor(0xff666666);hint.setPadding(0,dp(4),0,0);words.addView(hint);
@@ -408,6 +430,7 @@ public final class MainActivity extends Activity {
         View separator=new View(this);separator.setBackgroundColor(Color.BLACK);LinearLayout.LayoutParams rule=new LinearLayout.LayoutParams(-1,dp(1));rule.setMarginStart(dp(indent));tasksBox.addView(separator,rule);
     }
     private void detail(Core.Task t, Store.Snapshot s) {
+        for(Core.Operation op:s.operations)if(op.taskId.equals(t.id)&&op.kind.equals("add")){queue();return;}
         String info = s.projectName(t.projectId) + (t.due.isEmpty() ? "" : "\n到期：" + t.due)
             + (t.recurring ? "\n重复任务：完成后由 Todoist 安排下一次。" : "") + (t.description.isEmpty() ? "" : "\n\n" + t.description);
         new FontDialogBuilder(this).setTitle(t.content).setMessage(info).setPositiveButton("完成", (d, w) -> act(t, "close"))
@@ -516,7 +539,7 @@ public final class MainActivity extends Activity {
             List<Core.Operation> ops = store.snapshot().operations;
             if (ops.isEmpty()) { toast("没有待确认或失败的操作"); return; }
             String[] labels = new String[ops.size()];
-            for (int i = 0; i < ops.size(); i++) { Core.Operation op = ops.get(i); labels[i] = (op.kind.equals("close") ? "完成" : "删除") + " · " + op.title + "\n" + stateName(op.state); }
+            for (int i = 0; i < ops.size(); i++) { Core.Operation op = ops.get(i); labels[i] = (op.kind.equals("add")?"添加":op.kind.equals("close") ? "完成" : "删除") + " · " + op.title + "\n" + stateName(op.state); }
             new FontDialogBuilder(this).setTitle("操作记录").setItems(labels, (d, which) -> {
                 Core.Operation op = ops.get(which); boolean canDiscard = !op.state.equals("sending");
                 AlertDialog.Builder b = new FontDialogBuilder(this).setTitle(stateName(op.state))

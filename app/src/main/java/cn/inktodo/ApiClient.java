@@ -25,7 +25,7 @@ final class ApiClient {
     ApiClient() { this(new HttpsTransport()); }
     ApiClient(Transport transport) { this.transport = transport; }
     JSONObject sync(String token, String cursor, List<Core.Operation> operations) throws Exception {
-        JSONArray commands = new JSONArray(); for (Core.Operation op : operations) commands.put(Core.command(op.uuid, op.taskId, op.kind));
+        JSONArray commands = new JSONArray(); for (Core.Operation op : operations) commands.put(Core.command(op));
         String body = "sync_token=" + enc(cursor) + "&resource_types=" + enc("[\"items\",\"projects\"]")
             + "&commands=" + enc(commands.toString());
         Reply r = transport.post(token, body.getBytes(StandardCharsets.UTF_8));

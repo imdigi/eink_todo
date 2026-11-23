@@ -46,7 +46,7 @@ public final class UndoVerificationRunner extends Instrumentation {
         SQLiteDatabase db=legacy.getWritableDatabase();db.execSQL("INSERT INTO tasks VALUES(?,?)",new Object[]{"legacy",item("legacy","",0,false).toString()});
         db.execSQL("INSERT INTO meta VALUES('cursor','legacy-cursor')");db.execSQL("INSERT INTO operations VALUES('original-uuid','legacy','close','sending','legacy','',1)");legacy.close();
         Store upgraded=new Store(getTargetContext(),name);
-        try{Store.Snapshot s=upgraded.snapshot();check(s.tasks.size()==1&&s.cursor.equals("legacy-cursor")&&s.operations.get(0).uuid.equals("original-uuid"),"schema upgrade preserves cached tasks, cursor and in-flight UUID");check(upgraded.getReadableDatabase().getVersion()==2&&upgraded.releaseAllUndo()==0,"schema upgrade adds undo tables without inventing pending undo actions");}
+        try{Store.Snapshot s=upgraded.snapshot();check(s.tasks.size()==1&&s.cursor.equals("legacy-cursor")&&s.operations.get(0).uuid.equals("original-uuid"),"schema upgrade preserves cached tasks, cursor and in-flight UUID");check(upgraded.getReadableDatabase().getVersion()==3&&upgraded.releaseAllUndo()==0,"schema upgrade adds undo tables without inventing pending undo actions");}
         finally{upgraded.close();getTargetContext().deleteDatabase(name);}
     }
     interface Checked{void run()throws Exception;}

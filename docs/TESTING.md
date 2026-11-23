@@ -8,7 +8,7 @@ curl -fL https://repo.maven.apache.org/maven2/org/json/json/20240303/json-202403
 python3 tools/test.py
 ```
 
-目前包含 128 项协议与逻辑检查，覆盖任务筛选、父子层级、日期分组、命令 UUID、同步响应、重试策略、节气日期与屏保指纹。
+目前包含 135 项协议与逻辑检查，覆盖任务筛选、父子层级、日期分组、命令 UUID、同步响应、重试策略、节气日期与屏保指纹。
 
 ## Android 验证
 
@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.20.1.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.21.0.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
@@ -26,6 +26,7 @@ adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.Verificati
 
 | 入口 | 范围 |
 | --- | --- |
+| `QuickAddRunner` | 隔离新增任务、离线重试和临时编号替换、v2 数据库升级、弹窗校验与自动键盘；26 项 |
 | `VerificationRunner` | 隔离数据库、离线队列、原 UUID 重试、加密存储；29 项 |
 | `UndoVerificationRunner` | 隔离任务、父子撤回、三秒提示队列、按钮位置稳定；34 项 |
 | `NetworkVerificationRunner` | 注入网络和时钟的唤醒等待、每秒本地检查、15 秒超时、恢复及离开取消；14 项 |

@@ -214,9 +214,24 @@ public final class Core {
         return new JSONObject().put("uuid", uuid).put("type", "item_" + kind)
             .put("args", new JSONObject().put("id", taskId));
     }
+    public static JSONObject addArgs(String content, LocalDate day, String inbox) throws Exception {
+        String title=content.trim();
+        if(title.isEmpty() || title.length()>500)throw new IllegalArgumentException("请输入 1–500 字的任务内容");
+        JSONObject args=new JSONObject().put("content",title).put("due",new JSONObject().put("date",day.toString()).put("is_recurring",false));
+        if(!inbox.isEmpty())args.put("project_id",inbox);
+        return args;
+    }
+    public static JSONObject command(Operation op)throws Exception{
+        if(!op.kind.equals("add"))return command(op.uuid,op.taskId,op.kind);
+        return new JSONObject().put("uuid",op.uuid).put("temp_id",op.taskId).put("type","item_add").put("args",new JSONObject(op.args));
+    }
     public static final class Operation {
-        public final String uuid, taskId, kind, state, title, error;
+        public final String uuid, taskId, kind, state, title, error, args;
         public Operation(String uuid, String taskId, String kind, String state, String title, String error) {
+            this(uuid,taskId,kind,state,title,error,"");
+        }
+        public Operation(String uuid,String taskId,String kind,String state,String title,String error,String args){
+            this.args=args;
             this.uuid = uuid; this.taskId = taskId; this.kind = kind;
             this.state = state; this.title = title; this.error = error;
         }
@@ -239,7 +254,7 @@ public final class Core {
                 int code = e.optInt("http_code", 0);
                 String tag = e.optString("error_tag", "");
                 // Missing tasks are already absent on the server: converge to that state.
-                if (code == 404 || tag.equals("ITEM_NOT_FOUND")) {
+                if (!op.kind.equals("add") && (code == 404 || tag.equals("ITEM_NOT_FOUND"))) {
                     out.add(new Result(op.uuid, "ok", ""));
                 } else {
                     String msg = e.optString("error", "操作未被服务器接受") + (tag.isEmpty() ? "" : " (" + tag + ")");
