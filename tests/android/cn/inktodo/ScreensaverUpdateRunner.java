@@ -55,6 +55,10 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
             prefs.edit().putLong("failed_at",0).commit();accept[0]=true;check(engine.refreshNow()==ScreensaverController.Outcome.UPDATED&&!prefs.contains("last_error"),"retry succeeds and clears update error");
             engine.setAutomatic(false);merge(new JSONArray().put(item("disabled","",0,"关闭时不提交")));int count=submissions[0];
             check(engine.refreshNow()==ScreensaverController.Outcome.DISABLED&&submissions[0]==count,"disabled automatic update leaves current image unchanged");
+            CountDownLatch forced=new CountDownLatch(2);
+            ScreensaverController explicit=new ScreensaverController(getTargetContext(),prefs,demo->store.snapshot(),(path,hint)->{created.add(path);forced.countDown();return true;},"InkTodoUpdateVerification");
+            explicit.settingsChanged();explicit.settingsChanged();
+            check(forced.await(10,TimeUnit.SECONDS),"each settings modification submits SDK even when auto update is off and content repeats");
             prefs.edit().putBoolean("auto_update",true).commit();CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
             ScreensaverController slow=new ScreensaverController(getTargetContext(),prefs,demo->{entered.countDown();if(!release.await(5,TimeUnit.SECONDS))throw new IOException("timeout");return store.snapshot();},(path,hint)->{throw new AssertionError("Stale request submitted");},"InkTodoUpdateVerification");
             ExecutorService worker=Executors.newSingleThreadExecutor();Future<ScreensaverController.Outcome> waiting=worker.submit(()->slow.refreshNow());

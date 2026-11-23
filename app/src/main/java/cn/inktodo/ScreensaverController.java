@@ -42,10 +42,15 @@ final class ScreensaverController {
     }
     Outcome refreshNow(){synchronized(gate){epoch++;if(pending!=null)pending.cancel(false);}return refresh(currentEpoch());}
     private long currentEpoch(){synchronized(gate){return epoch;}}
-    private Outcome refresh(long version){
+    void settingsChanged(){
+        if(!OnyxScreen.sdkAvailable()||!OnyxScreen.isBoox()||!configured())return;
+        WORK.execute(()->refresh(currentEpoch(),true));
+    }
+    private Outcome refresh(long version){return refresh(version,false);}
+    private Outcome refresh(long version,boolean force){
         ScreensaverExport.Published image=null;String signature="";
         try{
-            if(!configured()||!automatic())return Outcome.DISABLED;
+            if(!configured()||(!force&&!automatic()))return Outcome.DISABLED;
             boolean demo=prefs.getBoolean("source_demo",false);String filter=prefs.getString("filter","today"),project=prefs.getString("project","");
             Store.Snapshot snapshot=source.read(demo);
             SnapshotModel model=ScreensaverProjects.model(context,demo,snapshot,filter,project);
@@ -53,14 +58,14 @@ final class ScreensaverController {
             Point size=new Point();((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             signature=model.fingerprint(size.x,size.y,font);
             synchronized(gate){
-                if(version!=epoch)return Outcome.STALE;
-                if(prefs.getInt("delivery_version",0)==1&&!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
-                if(signature.equals(prefs.getString("failed_hash",""))&&System.currentTimeMillis()-prefs.getLong("failed_at",0)<60000)return Outcome.RETRY_LATER;
+                if(!force&&version!=epoch)return Outcome.STALE;
+                if(!force&&prefs.getInt("delivery_version",0)==1&&!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
+                if(!force&&signature.equals(prefs.getString("failed_hash",""))&&System.currentTimeMillis()-prefs.getLong("failed_at",0)<60000)return Outcome.RETRY_LATER;
             }
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,choice.face);
             byte[] data;try{data=ScreensaverExport.encode(bitmap);}finally{bitmap.recycle();}
             synchronized(gate){
-                if(version!=epoch||!automatic())return Outcome.STALE;
+                if(!force&&(version!=epoch||!automatic()))return Outcome.STALE;
                 prefs.edit().putBoolean("needs_submit",true).commit();
                 image=ScreensaverExport.publish(context,data,size.x,size.y,folder);
                 ScreensaverExport.Published transfer=ScreensaverExport.publishImport(context,data,size.x,size.y,folder);
@@ -70,7 +75,7 @@ final class ScreensaverController {
             }
         }catch(Exception|OutOfMemoryError error){
             // Do not delete a submitted image or the previously configured screen on failures.
-            synchronized(gate){if(version==epoch)prefs.edit().putString("last_error","自动更新暂未完成，将在后续同步时重试").putString("failed_hash",signature).putLong("failed_at",System.currentTimeMillis()).apply();}
+            synchronized(gate){if(force||version==epoch)prefs.edit().putString("last_error","自动更新暂未完成，将在后续同步时重试").putString("failed_hash",signature).putLong("failed_at",System.currentTimeMillis()).apply();}
             return Outcome.FAILED;
         }
     }

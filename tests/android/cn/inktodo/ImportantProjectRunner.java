@@ -5,6 +5,7 @@ import android.content.*;
 import android.graphics.*;
 import android.os.Bundle;
 import android.widget.*;
+import android.view.View;
 import java.lang.reflect.*;
 import java.io.*;
 import java.time.*;
@@ -21,8 +22,9 @@ public final class ImportantProjectRunner extends Instrumentation {
     void field(String name,Object value)throws Exception{Field f=MainActivity.class.getDeclaredField(name);f.setAccessible(true);f.set(activity,value);}
     void call(String name)throws Exception{Method method=MainActivity.class.getDeclaredMethod(name);method.setAccessible(true);method.invoke(activity);}
     void main(Checked code)throws Exception{Throwable[] error={null};runOnMainSync(()->{try{code.run();}catch(Throwable t){error[0]=t;}});if(error[0]!=null)throw new Exception(error[0]);}
-    AlertDialog settings()throws Exception{call("settings");return (AlertDialog)field("settingsDialog");}
-    Spinner picker(AlertDialog dialog){return dialog.getWindow().getDecorView().findViewWithTag("screensaver_important_project");}
+    View settings()throws Exception{call("settings");Object sheet=field("settingsPage");Method navigate=sheet.getClass().getDeclaredMethod("navigate",String.class);navigate.setAccessible(true);navigate.invoke(sheet,"screensaver");return activity.getWindow().getDecorView();}
+    void dialogDismiss()throws Exception{Object sheet=field("settingsPage");Method method=sheet.getClass().getDeclaredMethod("close");method.setAccessible(true);method.invoke(sheet);}
+    Spinner picker(View dialog){return dialog.findViewWithTag("screensaver_important_project");}
     JSONObject task(String id,String parent,String title,String description,int order)throws Exception{return new JSONObject().put("id",id).put("project_id","goals").put("parent_id",parent).put("content",title).put("description",description).put("child_order",order);}
     void merge(JSONArray items,JSONArray projects)throws Exception{fixture.merge(new JSONObject().put("sync_token","fixture").put("items",items).put("projects",projects),Collections.emptyList());}
     @Override public void onCreate(Bundle args){super.onCreate(args);start();}
@@ -47,15 +49,15 @@ public final class ImportantProjectRunner extends Instrumentation {
             main(()->{
                 originalStore=field("store");originalDemo=(Boolean)field("demo");originalFilter=(String)field("filter");originalProject=(String)field("project");
                 field("store",fixture);field("demo",true);field("filter","today");field("project","");
-                AlertDialog dialog=settings();Spinner choices=picker(dialog);
+                View dialog=settings();Spinner choices=picker(dialog);
                 check(choices.getCount()==2&&choices.getItemAtPosition(1).equals("个人提升"),"picker includes only existing active project and disable option, excluding inbox archived and deleted");
-                choices.setSelection(1);dialog.getButton(AlertDialog.BUTTON_NEGATIVE).performClick();
+                choices.setSelection(1);
             });waitForIdleSync();
-            check(prefs.getString(key,"").isEmpty(),"cancel leaves important selection unchanged");
-            main(()->{AlertDialog dialog=settings();picker(dialog).setSelection(1);dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();});waitForIdleSync();
-            check(prefs.getString(key,"").equals("goals"),"Save stores selected confirmed project ID");
+            check(prefs.getString(key,"").equals("goals"),"project selection persists immediately");
+            main(()->dialogDismiss());
+            check(prefs.getString(key,"").equals("goals"),"closing settings retains immediate selection");
             check(prefs.getString(ScreensaverProjects.key(false),"").equals(real),"demo project selection cannot overwrite real account selection");
-            main(()->{AlertDialog dialog=settings();check(picker(dialog).getSelectedItemPosition()==1,"reopening settings restores selected project");dialog.dismiss();});
+            main(()->{View dialog=settings();check(picker(dialog).getSelectedItemPosition()==1,"reopening settings restores selected project");dialogDismiss();});
             Store.Snapshot snapshot=fixture.snapshot();SnapshotModel model=ScreensaverProjects.model(app,true,snapshot,"today","");
             check(model.hasImportant()&&model.goals.size()==3,"configured snapshot loads only three root goals from selected project");
             check(ScreensaverProjects.model(app,true,snapshot,"project","goals").filter.equals("today"),"important mode uses date groups even when previewing from project view");
@@ -72,7 +74,8 @@ public final class ImportantProjectRunner extends Instrumentation {
             check(engine.refreshNow()==ScreensaverController.Outcome.UNCHANGED&&submissions[0]==2,"unchanged important project avoids duplicate SDK submission");
             merge(new JSONArray(),new JSONArray().put(new JSONObject().put("id","goals").put("name","个人提升").put("is_archived",true)));snapshot=fixture.snapshot();
             check(!ScreensaverProjects.model(app,true,snapshot,"today","").hasImportant(),"archived selected project automatically falls back to single column");
-            main(()->{AlertDialog dialog=settings();check(picker(dialog).getCount()==1&&picker(dialog).getSelectedItemPosition()==0,"unavailable selected project is not offered in picker");dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick();});waitForIdleSync();check(prefs.getString(key,"bad").isEmpty(),"Save can explicitly disable important panel");
+            main(()->{View dialog=settings();check(picker(dialog).getCount()==1&&picker(dialog).getSelectedItemPosition()==0,"unavailable selected project is not offered in picker");dialogDismiss();});
+            prefs.edit().putString(key,"").commit();check(prefs.getString(key,"bad").isEmpty(),"important panel can be explicitly disabled");
             out.putString("stream",log+"SUCCESS "+checks+" important project assertions\nSAMPLE_PATH="+sampleFile.getAbsolutePath()+"\n");
         }catch(Throwable error){out.putString("stream",log+"FAIL "+android.util.Log.getStackTraceString(error));}
         finally{

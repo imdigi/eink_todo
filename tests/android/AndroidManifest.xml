@@ -20,5 +20,6 @@
     <instrumentation android:name="cn.inktodo.ScreensaverFontUiRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao snapshot font settings picker" />
     <instrumentation android:name="cn.inktodo.ScreensaverFontRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao independent snapshot fonts" />
     <instrumentation android:name="cn.inktodo.ImportantProjectRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao selected important project verification" />
+    <instrumentation android:name="cn.inktodo.SettingsHierarchyRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao fixed-size immediate hierarchical settings" />
     <instrumentation android:name="cn.inktodo.ScreensaverReadProbe" android:targetPackage="cn.inktodo.app" android:label="Weiliao screensaver import read probe" />
 </manifest>

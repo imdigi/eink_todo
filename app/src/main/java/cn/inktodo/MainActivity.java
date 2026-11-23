@@ -40,7 +40,6 @@ public final class MainActivity extends Activity {
     private Map<String,Integer> navCounts = Collections.emptyMap();
     private String compactSignature = "";
     private TextView dateLabel;
-    private AlertDialog settingsDialog;
     private FontStore.Choice uiFont=FontStore.system();
     private java.util.function.Consumer<FontStore.Choice> fontImportResult;
     private final OnyxScreen eink = new OnyxScreen();
@@ -80,8 +79,8 @@ public final class MainActivity extends Activity {
     }
     @Override public void onConfigurationChanged(Configuration c) { super.onConfigurationChanged(c); build(); }
     @Override protected void onResume() {
-        if(!filter.equals("today")||!project.isEmpty()){filter="today";project="";resetTaskScroll=true;}
-        super.onResume();if(!branchFolds.isEmpty()){branchFolds.clear();taskSignature="";}resumed = true; network.start();networkManual=false;retry().networkRecovered();screenFlag(); render(); sync(false); handler.removeCallbacks(tick); handler.postDelayed(tick, 30000);
+        if(!settingsOpen()&&(!filter.equals("today")||!project.isEmpty())){filter="today";project="";resetTaskScroll=true;}
+        super.onResume();if(!settingsOpen()&&!branchFolds.isEmpty()){branchFolds.clear();taskSignature="";}resumed = true; network.start();networkManual=false;retry().networkRecovered();screenFlag(); render(); sync(false); handler.removeCallbacks(tick); handler.postDelayed(tick, 30000);
         configureEink();
         root.post(() -> { if (resumed && !destroyed) eink.clean(root); });
     }
@@ -123,9 +122,9 @@ public final class MainActivity extends Activity {
     private void build() {
         String fontFile=prefs.getString("font_file","");
         if(!uiFont.file.equals(fontFile))uiFont=FontStore.load(this,fontFile,prefs.getString("font_name","自选字体"));
-        taskSignature = ""; sideSignature = ""; compactSignature = ""; compactNav = null; resetTaskScroll = true;
+        taskSignature = ""; sideSignature = ""; compactSignature = ""; compactNav = null; resetTaskScroll = !settingsOpen();
         split = prefs.getBoolean("split", true) && getResources().getConfiguration().screenWidthDp >= 600;
-        root = column(); root.setBackgroundColor(Color.WHITE); root.setPadding(dp(14), dp(8), dp(14), dp(8));
+        root = column();root.setBackgroundColor(Color.WHITE); root.setPadding(dp(14), dp(8), dp(14), dp(8));
         LinearLayout top = row(); top.setGravity(Gravity.TOP);top.setPadding(0,0,0,dp(12));
         appTitle = text("", 27, false); appTitle.setTag("app_title");
         appTitle.setMinHeight(dp(48)); appTitle.setGravity(Gravity.CENTER_VERTICAL);
@@ -159,7 +158,7 @@ public final class MainActivity extends Activity {
             ScrollView sc = new ScrollView(this); sc.addView(welcome); root.addView(sc, new LinearLayout.LayoutParams(-1, 0, 1));
             root.addView(footer);
             TextView legal = text("独立第三方应用，非 Todoist 官方产品。", 12, false); root.addView(legal);
-            tasksBox = null; taskScroll = null; sideBox = null; setContentView(root); render(); return;
+            tasksBox = null; taskScroll = null; sideBox = null; if(!settingsOpen())setContentView(root);render();return;
         }
         LinearLayout body = row(); body.setGravity(Gravity.TOP); root.addView(body, new LinearLayout.LayoutParams(-1, 0, 1));
         sideBox = null;
@@ -187,7 +186,7 @@ public final class MainActivity extends Activity {
         tasksBox = column(); taskScroll.addView(tasksBox);
         content.addView(taskScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         if (!split) content.addView(footer, new LinearLayout.LayoutParams(-1, -2));
-        setContentView(root); screenFlag(); configureEink(); render();
+        if(!settingsOpen())setContentView(root);screenFlag(); configureEink(); render();
     }
     private void updateAppTitle(){
         appTitle.setTypeface(SnapshotImage.headingTypeface(),Typeface.NORMAL);appTitle.setIncludeFontPadding(false);
@@ -227,7 +226,7 @@ public final class MainActivity extends Activity {
             });
         });dialog.show();applyFontTree(dialog.getWindow().getDecorView());
     }
-    private void configureEink() { eink.configure(root, prefs.getBoolean("eink", false), prefs.getInt("gc_interval", 8)); }
+    private void configureEink() { eink.configure(settingsOpen()?settingsPage.shell:root, prefs.getBoolean("eink", false), prefs.getInt("gc_interval", 8)); }
     private void refreshChanged(View view) {
         View owner = root;
         view.post(() -> { if (resumed && !destroyed && owner == root) eink.changed(view); });
@@ -562,120 +561,125 @@ public final class MainActivity extends Activity {
     private void settingAction(LinearLayout parent,Button action) {
         LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(-1,-2);params.setMargins(dp(3),dp(3),dp(3),dp(3));parent.addView(action,params);
     }
-    private void settings() {
-        LinearLayout body=column();body.setPadding(dp(20),dp(4),dp(20),dp(8));
-        LinearLayout tabs=row();Button displayTab=button("显示与同步",null),toolsTab=button("工具与账号",null);
-        addButton(tabs,displayTab,1);addButton(tabs,toolsTab,1);body.addView(tabs);
-        LinearLayout display=column(),tools=column();android.widget.FrameLayout pages=new android.widget.FrameLayout(this);
-        pages.addView(display);pages.addView(tools);tools.setVisibility(View.GONE);
-        ScrollView scroll=new ScrollView(this);scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);scroll.setScrollbarFadingEnabled(false);scroll.addView(pages);
-        int contentHeight=Math.min(500,Math.max(220,getResources().getConfiguration().screenHeightDp-240));
-        body.addView(scroll,new LinearLayout.LayoutParams(-1,dp(contentHeight)));
-        Runnable selectDisplay=() -> {display.setVisibility(View.VISIBLE);tools.setVisibility(View.GONE);scroll.scrollTo(0,0);displayTab.setBackground(border(true));displayTab.setTextColor(Color.WHITE);toolsTab.setBackground(border(false));toolsTab.setTextColor(Color.BLACK);};
-        Runnable selectTools=() -> {display.setVisibility(View.GONE);tools.setVisibility(View.VISIBLE);scroll.scrollTo(0,0);toolsTab.setBackground(border(true));toolsTab.setTextColor(Color.WHITE);displayTab.setBackground(border(false));displayTab.setTextColor(Color.BLACK);};
-        displayTab.setOnClickListener(v -> selectDisplay.run());toolsTab.setOnClickListener(v -> selectTools.run());selectDisplay.run();
-        settingSection(display,"显示");
-        Spinner font=spinner(new String[]{"20","22","26","30"});int[] fonts={20,22,26,30};font.setSelection(index(fonts,font()));settingRow(display,"任务字号",font);
-        final FontStore.Choice[] selectedFont={uiFont};
-        final AlertDialog[] owner={null};
-        TextView fontName=text("当前字体："+uiFont.name,14,false);fontName.setTag("font_name");display.addView(fontName);
-        LinearLayout fontActions=row();Button importFont=button("导入 TTF…",null),defaultFont=button("系统默认",null);
-        addButton(fontActions,importFont,1);addButton(fontActions,defaultFont,1);display.addView(fontActions);
-        TextView fontPreview=text("字体预览：今天，把重要的事做好。\n0123456789 · Regular / 粗体",17,false);fontPreview.setTag("font_preview");fontPreview.setPadding(0,dp(8),0,dp(8));display.addView(fontPreview);
-        fontPreview.setText(TitleMarkdown.render("字体预览：今天，把重要的事做好。\n0123456789 · 常规 / **粗体** / *斜体*"));
-        LinearLayout countPreview=row();display.addView(countPreview);
-        Runnable updateFontPreview=() -> {
-            fontName.setText("当前字体："+selectedFont[0].name);fontPreview.setTypeface(selectedFont[0].face);
-            countPreview.removeAllViews();
-            for(boolean selected:new boolean[]{false,true}){
-                CountButton sample=new CountButton(this,selected?"选中":"未选中",28,selected,selectedFont[0].face);sample.setBackground(border(selected));sample.setClickable(false);sample.setFocusable(false);addButton(countPreview,sample,1);
-            }
-        };updateFontPreview.run();
-        defaultFont.setOnClickListener(v -> {FontStore.discard(this,selectedFont[0],prefs.getString("font_file",""));selectedFont[0]=FontStore.system();updateFontPreview.run();});
-        importFont.setOnClickListener(v -> {
-            if(fontImportResult!=null){toast("正在导入字体，请稍候");return;}
-            fontImportResult=choice -> {
-                importFont.setEnabled(true);if(owner[0]!=null)owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
-                if(choice==null)return;
-                if(destroyed || owner[0]==null || !owner[0].isShowing()){FontStore.discard(this,choice,prefs.getString("font_file",""));return;}
-                FontStore.discard(this,selectedFont[0],prefs.getString("font_file",""));selectedFont[0]=choice;updateFontPreview.run();
-            };
+    private SettingsPage settingsPage;
+    private boolean settingsOpen(){return settingsPage!=null&&settingsPage.active;}
+    private void settings(){if(settingsOpen())return;settingsPage=new SettingsPage();settingsPage.show();}
+    @Override public void onBackPressed(){if(settingsOpen())settingsPage.back();else super.onBackPressed();}
+    private final class SettingsPage {
+        final LinearLayout shell=column(),header=row(),page=column();
+        final ScrollView scroll=new ScrollView(MainActivity.this);
+        final Map<String,Integer> positions=new HashMap<>();
+        final TextView title=text("设置",22,true);
+        final Button back=plain("←",v->back());
+        final SettingsWidgets.Step up=new SettingsWidgets.Step(MainActivity.this,false),down=new SettingsWidgets.Step(MainActivity.this,true);
+        final int dashboardScroll=taskScroll==null?0:taskScroll.getScrollY();
+        boolean active;String current="root";
+        Button plain(String label,View.OnClickListener action){Button button=button(label,action);button.setBackgroundColor(Color.TRANSPARENT);return button;}
+        void show(){
+            active=true;back.setTag("settings_back");back.setTextSize(32);back.setContentDescription("返回");title.setTag("settings_heading");shell.setTag("settings_shell");shell.setBackgroundColor(Color.WHITE);
+            header.setGravity(Gravity.CENTER);header.setPadding(dp(24),dp(10),dp(24),dp(12));title.setGravity(Gravity.CENTER);header.addView(title,new LinearLayout.LayoutParams(-1,dp(48)));shell.addView(header);
+            scroll.setTag("settings_scroll");scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);scroll.setScrollbarFadingEnabled(false);scroll.setBackgroundColor(Color.WHITE);scroll.addView(page);shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+            divider(shell);LinearLayout footer=row();footer.setPadding(dp(14),dp(6),dp(14),dp(6));footer.addView(back,new LinearLayout.LayoutParams(dp(72),dp(52)));footer.addView(new View(MainActivity.this),new LinearLayout.LayoutParams(0,1,1));
+            up.setTag("settings_previous");down.setTag("settings_next");footer.addView(up,new LinearLayout.LayoutParams(dp(64),dp(52)));footer.addView(down,new LinearLayout.LayoutParams(dp(64),dp(52)));shell.addView(footer);
+            up.setOnClickListener(v->scroll.scrollBy(0,-scroll.getHeight()));down.setOnClickListener(v->scroll.scrollBy(0,scroll.getHeight()));scroll.getViewTreeObserver().addOnScrollChangedListener(this::updateSteps);
+            setContentView(shell);navigate("root");configureEink();
+        }
+        void updateSteps(){up.setEnabled(scroll.getScrollY()>0);down.setEnabled(page.getHeight()>scroll.getHeight()+scroll.getScrollY()+dp(20));}
+        void back(){if(!current.equals("root"))navigate("root");else close();}
+        void close(){
+            if(!active)return;active=false;setContentView(root);render();configureEink();
+            root.post(()->{if(taskScroll!=null){resetTaskScroll=false;taskScroll.scrollTo(0,dashboardScroll);}});
+        }
+        void navigate(String name){
+            positions.put(current,scroll.getScrollY());current=name;page.removeAllViews();page.setTag("settings_page:"+name);page.setPadding(dp(24),dp(8),dp(24),dp(16));
+            title.setText(name.equals("root")?"设置":name.equals("display")?"显示":name.equals("sync")?"同步":name.equals("screensaver")?"待办屏保":name.equals("eink")?"墨水屏":name.equals("tools")?"工具":"账号");
             try{
-                Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
-                importFont.setEnabled(false);owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);startActivityForResult(pick,91);
-            }catch(ActivityNotFoundException e){java.util.function.Consumer<FontStore.Choice> callback=fontImportResult;fontImportResult=null;callback.accept(null);toast("未找到文件选择器，请先启用系统文件管理器");}
-        });
-        settingHint(display,"选择 .ttf 文件后先预览，点底部保存生效；取消不更换。字体会复制到本机，原文件之后可移除。建议使用常规或中等字重的中文黑体。");
-        CheckBox square=settingCheck(display,"使用方角按钮",prefs.getBoolean("square_buttons",true));
-        CheckBox awake=settingCheck(display,"保持屏幕唤醒",prefs.getBoolean("awake",false));
-        CheckBox columns=settingCheck(display,"宽屏使用左右分栏",prefs.getBoolean("split",true));
-        settingHint(display,"常亮适合常驻展示，会增加耗电。");
-        settingSection(display,"同步");
-        Spinner interval=spinner(new String[]{"5 分钟","10 分钟","15 分钟","30 分钟"});int[] mins={5,10,15,30};interval.setSelection(index(mins,prefs.getInt("interval",10)));settingRow(display,"自动同步间隔",interval);
-        settingHint(display,"仅在前台自动同步；唤醒后恢复。也可使用首页右上角的同步按钮。");
-        settingSection(display,"墨水屏");
-        settingHint(display,"建议在文石应用引擎优化 → 个性化中选择“标准”刷新模式；“极速”会损失边缘灰阶。应用默认沿用系统刷新。");
-        CheckBox enhanced=settingCheck(display,"启用墨水屏刷新优化",prefs.getBoolean("eink",false));enhanced.setEnabled(OnyxScreen.isBoox());
-        Spinner gc=spinner(new String[]{"4 次","8 次","16 次"});int[] gcValues={4,8,16};gc.setSelection(index(gcValues,prefs.getInt("gc_interval",8)));gc.setEnabled(OnyxScreen.isBoox());settingRow(display,"清残影间隔",gc);
-        settingHint(display,"按任务页面内容变化计数。手动清残影放在“工具与账号”中。");
-        settingSection(tools,"工具");LinearLayout actions=row();
-        addButton(actions,button("操作记录",v -> {settingsDialog.dismiss();queue();}),1);
-        addButton(actions,button("清残影",v -> {settingsDialog.dismiss();root.post(() -> {if(!eink.clean(root))toast("文石增强未启用，已执行普通重绘");});}),1);tools.addView(actions);
-        settingSection(tools,"待办屏保");
-        settingAction(tools,button("待办屏保预览…",v -> {settingsDialog.dismiss();previewScreensaver();}));
-        Store.Snapshot projectSnapshot;
-        try{projectSnapshot=store.snapshot();}catch(Exception e){toast("无法读取项目，请同步后重试");return;}
-        final List<String> importantIds=new ArrayList<>(),importantNames=new ArrayList<>();
-        importantIds.add("");importantNames.add("不设置重要项目（单栏）");
-        for(Map.Entry<String,String> entry:projectSnapshot.projects.entrySet()){importantIds.add(entry.getKey());importantNames.add(entry.getValue());}
-        String savedImportant=prefs.getString(ScreensaverProjects.key(demo),"");
-        Spinner importantProject=spinner(importantNames.toArray(new String[0]));importantProject.setTag("screensaver_important_project");
-        importantProject.setSelection(Math.max(0,importantIds.indexOf(savedImportant)));settingRow(tools,"重要项目",importantProject);
-        settingHint(tools,"选择已同步的项目后，锁屏左侧显示待办，右侧“常记之事”只显示未完成的主任务，显示描述，隐藏子任务和日期。已在左侧出现的任务不重复展示。保存后生效。");
-        if(!savedImportant.isEmpty()&&!projectSnapshot.projects.containsKey(savedImportant))settingHint(tools,"原重要项目已归档或删除，当前使用单栏；可重新选择。");
-        final FontStore.Choice[] saverFont={ScreensaverFont.load(this)};
-        TextView saverFontName=text("屏保字体："+saverFont[0].name,14,false);tools.addView(saverFontName);
-        TextView saverFontPreview=text("小雪 · 未了之事，次第而行\n今天 11月23日 · 阅读与日课",20,false);
-        saverFontPreview.setTag("screensaver_font_preview");saverFontPreview.setPadding(0,dp(8),0,dp(12));tools.addView(saverFontPreview);
-        Runnable updateSaverFont=()->{saverFontName.setText("屏保字体："+saverFont[0].name);saverFontPreview.setTypeface(saverFont[0].face);};updateSaverFont.run();
-        LinearLayout saverFontActions=row();Button importSaverFont=button("导入屏保字体 TTF…",null),resetSaverFont=button("恢复默认宋体",null);
-        addButton(saverFontActions,importSaverFont,1);addButton(saverFontActions,resetSaverFont,1);tools.addView(saverFontActions);
-        resetSaverFont.setOnClickListener(v->{FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));saverFont[0]=ScreensaverFont.defaults();updateSaverFont.run();});
-        importSaverFont.setOnClickListener(v->{
+                switch(name){case "display":display();break;case "sync":syncSettings();break;case "screensaver":screensaver();break;case "eink":einkSettings();break;case "tools":tools();break;case "account":account();break;default:home();}
+            }catch(Exception error){settingHint(page,"无法读取设置，请返回后重试。");}
+            applyFontTree(page);final String owner=name;scroll.post(()->{if(current.equals(owner)){scroll.scrollTo(0,positions.getOrDefault(owner,0));updateSteps();}});
+        }
+        void divider(LinearLayout parent){parent.addView(new SettingsWidgets.Rule(MainActivity.this),new LinearLayout.LayoutParams(-1,dp(1)));}
+        LinearLayout settingItem(String label,String summary){
+            LinearLayout item=row();item.setGravity(Gravity.CENTER_VERTICAL);item.setPadding(0,dp(18),0,dp(18));item.setMinimumHeight(dp(94));item.setBackgroundColor(Color.WHITE);
+            LinearLayout copy=column();TextView name=text(label,19,true);copy.addView(name);if(!summary.isEmpty()){TextView detail=text(summary,14,false);detail.setTextColor(0xff333333);detail.setPadding(0,dp(6),dp(10),0);copy.addView(detail);}
+            item.addView(copy,new LinearLayout.LayoutParams(0,-2,1));return item;
+        }
+        void entry(String label,String value,String destination){
+            LinearLayout item=settingItem(label,value);item.setTag("settings_entry:"+destination);TextView arrow=text("›",30,false);item.addView(arrow,new LinearLayout.LayoutParams(dp(24),-2));item.setClickable(true);item.setFocusable(true);item.setContentDescription(label);item.setOnClickListener(v->navigate(destination));page.addView(item);divider(page);
+        }
+        void group(String label){TextView h=text(label,13,false);h.setTextColor(0xff555555);h.setPadding(dp(10),dp(20),0,dp(8));page.addView(h);}
+        void home()throws Exception{
+            group("日常使用");entry("显示",font()+" 号字 · "+uiFont.name,"display");entry("同步","每 "+prefs.getInt("interval",10)+" 分钟","sync");
+            group("墨水屏与锁屏");Store.Snapshot snapshot=store.snapshot();String id=prefs.getString(ScreensaverProjects.key(demo),"");entry("待办屏保",snapshot.projects.getOrDefault(id,"单栏"),"screensaver");entry("墨水屏",prefs.getBoolean("eink",false)?"刷新优化已开启":"沿用系统刷新","eink");
+            group("工具与账号");entry("工具","操作记录、清残影","tools");entry("账号",demo?"演示模式":token.isEmpty()?"未连接":"已连接 Todoist","account");
+
+        }
+        void changed(){build();screenFlag();configureEink();}
+        Spinner choice(String label,String tag,String[] labels,int selection,java.util.function.IntConsumer action){
+            LinearLayout item=settingItem(label,"");LinearLayout copy=(LinearLayout)item.getChildAt(0);Spinner control=spinner(labels);control.setTag(tag);control.setBackgroundColor(Color.TRANSPARENT);control.setPadding(0,0,0,0);control.setDropDownWidth(dp(Math.min(400,getResources().getConfiguration().screenWidthDp-48)));control.setSelection(selection);copy.addView(control,new LinearLayout.LayoutParams(-1,dp(40)));
+            item.addView(text("›",30,false),new LinearLayout.LayoutParams(dp(24),-2));item.setOnClickListener(v->control.performClick());page.addView(item);divider(page);final int[] previous={selection};
+            control.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?> p){}public void onItemSelected(AdapterView<?> p,View v,int position,long id){if(position==previous[0])return;previous[0]=position;action.accept(position);}});return control;
+        }
+        CompoundButton toggle(String label,String key,boolean initial,java.util.function.Consumer<Boolean> action){
+            LinearLayout item=settingItem(label,"");SettingsWidgets.Toggle control=new SettingsWidgets.Toggle(MainActivity.this);control.setTag("settings_toggle:"+key);control.setContentDescription(label);control.setChecked(initial);item.addView(control,new LinearLayout.LayoutParams(dp(60),dp(48)));item.setOnClickListener(v->control.performClick());page.addView(item);divider(page);control.setOnCheckedChangeListener((b,on)->action.accept(on));return control;
+        }
+        void action(String label,Runnable action){LinearLayout item=settingItem(label,"");item.setContentDescription(label);item.setClickable(true);item.setFocusable(true);item.addView(text("›",30,false),new LinearLayout.LayoutParams(dp(24),-2));item.setOnClickListener(v->action.run());page.addView(item);divider(page);}
+        void display(){
+            int[] sizes={20,22,26,30};choice("任务字号","settings_font_size",new String[]{"20","22","26","30"},index(sizes,font()),i->{prefs.edit().putInt("font",sizes[i]).apply();changed();});
+            fontControls(false);
+            toggle("使用方角按钮","square_buttons",prefs.getBoolean("square_buttons",true),on->{prefs.edit().putBoolean("square_buttons",on).apply();changed();});
+            toggle("宽屏使用左右分栏","split",prefs.getBoolean("split",true),on->{prefs.edit().putBoolean("split",on).apply();changed();});
+            toggle("保持屏幕唤醒","awake",prefs.getBoolean("awake",false),on->{prefs.edit().putBoolean("awake",on).apply();screenFlag();});settingHint(page,"常亮适合常驻展示，会增加耗电。");
+        }
+        void syncSettings(){int[] intervals={5,10,15,30};choice("自动同步间隔","settings_sync_interval",new String[]{"5 分钟","10 分钟","15 分钟","30 分钟"},index(intervals,prefs.getInt("interval",10)),i->prefs.edit().putInt("interval",intervals[i]).apply());settingHint(page,"仅在前台自动同步；唤醒后等待网络就绪，也可手动同步。");}
+        void einkSettings(){
+            settingHint(page,"建议在文石应用引擎优化中选择“标准”刷新模式。关闭增强时沿用系统策略。");
+            CompoundButton enabled=toggle("启用墨水屏刷新优化","eink",prefs.getBoolean("eink",false),on->{prefs.edit().putBoolean("eink",on).apply();configureEink();navigate("eink");});enabled.setEnabled(OnyxScreen.isBoox());
+            int[] values={4,8,16};Spinner gc=choice("清残影间隔","settings_gc_interval",new String[]{"4 次","8 次","16 次"},index(values,prefs.getInt("gc_interval",8)),i->{prefs.edit().putInt("gc_interval",values[i]).apply();configureEink();});gc.setEnabled(OnyxScreen.isBoox()&&prefs.getBoolean("eink",false));
+        }
+        void screensaver()throws Exception{
+            ScreensaverController controller=ScreensaverController.get(getApplicationContext());
+            toggle("随任务变化更新屏保","auto_saver",controller.automatic(),on->{controller.setAutomatic(on);controller.settingsChanged();});
+            Store.Snapshot snapshot=store.snapshot();List<String> ids=new ArrayList<>(),names=new ArrayList<>();ids.add("");names.add("不设置重要项目（单栏）");for(Map.Entry<String,String> entry:snapshot.projects.entrySet()){ids.add(entry.getKey());names.add(entry.getValue());}
+            String key=ScreensaverProjects.key(demo),selected=prefs.getString(key,"");
+            choice("重要项目","screensaver_important_project",names.toArray(new String[0]),Math.max(0,ids.indexOf(selected)),i->{String id=ids.get(i);try{if(!id.isEmpty()&&!store.snapshot().projects.containsKey(id)){toast("项目已不可用，请重新选择");navigate("screensaver");return;}prefs.edit().putString(key,id).apply();controller.settingsChanged();}catch(Exception e){toast("无法读取项目，请重试");}});
+            settingHint(page,"右侧显示所选项目的未完成主任务与描述，隐藏子任务和时间。已在左侧出现的任务不重复展示。");fontControls(true);
+            action("待办屏保预览…",()->previewScreensaver());
+            settingHint(page,controller.configured()?"修改屏保设置后直接生成新图并提交文石系统。":"先预览并设为系统屏保，之后设置变化会直接更新。");
+            String error=controller.prefs.getString("last_error","");if(!error.isEmpty())settingHint(page,error);
+        }
+        void fontControls(boolean saver){
+            FontStore.Choice selected=saver?ScreensaverFont.load(MainActivity.this):uiFont;
+            TextView name=text((saver?"屏保字体：":"当前字体：")+selected.name,14,false);name.setTag(saver?"screensaver_font_name":"font_name");name.setPadding(0,dp(16),0,dp(8));page.addView(name);
+            TextView preview=text("未了之事，次第而行。\n今天，把重要的事做好。",21,false);preview.setTag("screensaver_font_preview");preview.setTypeface(selected.face);preview.setPadding(0,0,0,dp(10));page.addView(preview);
+            LinearLayout buttons=row();addButton(buttons,plain(saver?"导入屏保字体 TTF…":"导入 TTF…",v->importFont(saver)),1);
+            addButton(buttons,plain(saver?"恢复默认宋体":"系统默认",v->applyFont(saver,saver?ScreensaverFont.defaults():FontStore.system())),1);page.addView(buttons);divider(page);
+            settingHint(page,saver?"整张屏保统一字体，与首页独立。导入后先预览，再选择使用。":"导入字体先预览，确认使用后即时生效。原 TTF 文件之后可移除。");
+        }
+        void applyFont(boolean saver,FontStore.Choice choice){
+            String key=saver?ScreensaverFont.FILE:"font_file",name=saver?ScreensaverFont.NAME:"font_name";
+            prefs.edit().putString(key,choice.file).putString(name,choice.name).apply();
+            if(saver)ScreensaverController.get(getApplicationContext()).settingsChanged();else{uiFont=choice;changed();applyFontTree(shell);}
+            navigate(saver?"screensaver":"display");
+        }
+        void importFont(boolean saver){
             if(fontImportResult!=null){toast("正在导入字体，请稍候");return;}
             fontImportResult=choice->{
-                importSaverFont.setEnabled(true);if(owner[0]!=null)owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
                 if(choice==null)return;
-                if(destroyed||owner[0]==null||!owner[0].isShowing()){FontStore.discard(this,choice,prefs.getString(ScreensaverFont.FILE,""));return;}
-                FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));saverFont[0]=choice;updateSaverFont.run();
+                String key=saver?ScreensaverFont.FILE:"font_file";
+                if(destroyed||!active||settingsPage!=this){FontStore.discard(MainActivity.this,choice,prefs.getString(key,""));return;}
+                TextView sample=text("未了之事，次第而行。\n今天，把重要的事做好。\n0123456789",24,false);sample.setTypeface(choice.face);sample.setTag("screensaver_font_preview");sample.setPadding(dp(24),dp(16),dp(24),dp(20));
+                AlertDialog confirmation=new FontDialogBuilder(MainActivity.this).setTitle("字体预览").setMessage(choice.name).setView(sample).setNegativeButton("取消",null).setPositiveButton("使用此字体",(d,w)->applyFont(saver,choice)).create();
+                confirmation.setOnDismissListener(d->FontStore.discard(MainActivity.this,choice,prefs.getString(key,"")));confirmation.show();applyFontTree(confirmation.getWindow().getDecorView());
             };
-            try{Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);importSaverFont.setEnabled(false);owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);startActivityForResult(pick,91);}
-            catch(ActivityNotFoundException e){java.util.function.Consumer<FontStore.Choice> callback=fontImportResult;fontImportResult=null;callback.accept(null);toast("未找到文件选择器，请先启用系统文件管理器");}
-        });
-        settingHint(tools,"整张屏保统一使用此字体，与应用正文字体独立。导入后点击保存生效；恢复默认使用设备宋体。预览使用已保存的字体。");
-        ScreensaverController saver=ScreensaverController.get(getApplicationContext());
-        CheckBox autoSaver=settingCheck(tools,"随任务变化更新待办屏保",saver.automatic());autoSaver.setEnabled(saver.configured()&&OnyxScreen.sdkAvailable());
-        settingHint(tools,"先设为系统屏保，再按最近设置的视图自动更新。休眠时展示最近已同步内容；可关闭自动更新。");
-        String saverError=saver.prefs.getString("last_error","");if(!saverError.isEmpty())settingHint(tools,saverError);
-        settingSection(tools,"账号");
-        TextView account=text(demo?"演示模式":token.isEmpty()?"尚未连接 Todoist":"已连接 Todoist",16,true);account.setPadding(0,dp(10),0,dp(8));tools.addView(account);
-        LinearLayout accountActions=row();addButton(accountActions,button("连接管理",v -> connect()),1);
-        addButton(accountActions,button(demo?"返回真实账号":"进入演示模式",v -> switchDemo(!demo)),1);tools.addView(accountActions);
-        settingHint(tools,demo?"演示数据与真实账号完全隔离。":"连接管理可更换账号凭据。");
-        Button disconnectButton=button("断开并清除本机数据…",v -> disconnect());disconnectButton.setTextColor(0xff555555);settingAction(tools,disconnectButton);
-        settingHint(tools,"未了 "+appVersion()+(OnyxScreen.sdkAvailable()?"":" · 无 SDK 对照版")+" · 独立第三方应用，非由 Todoist 创建、关联或支持。");
-        settingsDialog=new FontDialogBuilder(this).setTitle("设置").setView(body).setPositiveButton("保存",(d,w) -> {
-            String selectedImportant=importantIds.get(importantProject.getSelectedItemPosition());
-            try{if(!selectedImportant.isEmpty()&&!store.snapshot().projects.containsKey(selectedImportant)){toast("该项目已不可用，请重新选择");return;}}catch(Exception e){toast("无法读取项目，请重试");return;}
-            prefs.edit().putString(ScreensaverProjects.key(demo),selectedImportant).putInt("interval",mins[interval.getSelectedItemPosition()]).putInt("font",fonts[font.getSelectedItemPosition()])
-                .putBoolean("awake",awake.isChecked()).putBoolean("split",columns.isChecked()).putBoolean("eink",enhanced.isChecked())
-                .putBoolean("square_buttons",square.isChecked()).putString("font_file",selectedFont[0].file).putString("font_name",selectedFont[0].name)
-                .putString(ScreensaverFont.FILE,saverFont[0].file).putString(ScreensaverFont.NAME,saverFont[0].name)
-                .putInt("gc_interval",gcValues[gc.getSelectedItemPosition()]).apply();uiFont=selectedFont[0];saver.setAutomatic(autoSaver.isChecked());build();
-        }).setNegativeButton("取消",null).create();
-        owner[0]=settingsDialog;
-        settingsDialog.setOnDismissListener(d -> {FontStore.discard(this,selectedFont[0],prefs.getString("font_file",""));FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));});
-        settingsDialog.show();applyFontTree(settingsDialog.getWindow().getDecorView());settingsDialog.getWindow().setLayout(dp(Math.min(640,getResources().getConfiguration().screenWidthDp-24)),WindowManager.LayoutParams.WRAP_CONTENT);
+            try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE),91);}catch(ActivityNotFoundException e){fontImportResult=null;toast("未找到系统文件选择器");}
+        }
+        void tools(){action("操作记录",()->queue());action("清残影",()->{if(!eink.clean(root))toast("已执行普通重绘");else toast("已请求全屏刷新");});}
+        void account(){
+            settingHint(page,demo?"演示模式":token.isEmpty()?"尚未连接 Todoist":"已连接 Todoist");
+            action("连接管理",()->connect());action(demo?"返回真实账号":"进入演示模式",()->{switchDemo(!demo);navigate("account");});
+            action("断开并清除本机数据…",()->disconnect());settingHint(page,"未了 "+appVersion()+" · 独立第三方应用，非由 Todoist 创建、关联或支持。");
+        }
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);if(request!=91)return;
@@ -748,7 +752,7 @@ public final class MainActivity extends Activity {
     private int index(int[] a, int n) { for (int i = 0; i < a.length; i++) if (a[i] == n) return i; return 0; }
     private void connect() {
         if (BUSY.get()) { toast("请等待本次同步结束后再更换账号"); return; }
-        if (settingsDialog != null) settingsDialog.dismiss();
+
         LinearLayout l = column(); l.setPadding(dp(22), dp(8), dp(22), dp(8));
         l.addView(text("在 Todoist 网页端：设置 → 集成 → 开发者，复制个人 API Token。\n\n更换 Token 会清除本机真实账号缓存及待同步操作；不会清除 Todoist 云端任务。", 16, false));
         EditText input = new InkRendering.Input(this); input.setSingleLine(true); input.setHint("粘贴个人 API Token");
@@ -763,7 +767,7 @@ public final class MainActivity extends Activity {
                     try {
                         vault.save(value); new Store(getApplicationContext(), false).reset(); token = value; demo = false;
                         prefs.edit().putBoolean("demo", false).apply(); openStore(); filter = "today"; project = "";
-                        resetRealRetry(); error = ""; input.setText(""); dialog.dismiss(); build(); sync(true);
+                        resetRealRetry(); error = ""; input.setText(""); dialog.dismiss();build();if(settingsOpen())settingsPage.navigate("account");sync(true);
                     } catch (Exception e) { toast("无法保存凭据，请重试"); }
                 };
                 try {
@@ -778,18 +782,18 @@ public final class MainActivity extends Activity {
     }
     private void disconnect() {
         if (BUSY.get()) { toast("请等待同步结束"); return; }
-        if (settingsDialog != null) settingsDialog.dismiss();
+
         new FontDialogBuilder(this).setTitle("断开并清除本机数据？").setMessage("移除 Token、缓存和所有待确认操作。云端任务不会被清除。")
             .setPositiveButton("清除本机数据", (d, w) -> {
                 if (BUSY.get()) { toast("请等待同步结束"); return; }
                 try { vault.clear(); new Store(getApplicationContext(), false).reset(); token = ""; demo = false; error = "";
-                    prefs.edit().putBoolean("demo", false).apply(); openStore(); resetRealRetry(); build(); }
+                    prefs.edit().putBoolean("demo", false).apply(); openStore();resetRealRetry();build();if(settingsOpen())settingsPage.navigate("account"); }
                 catch (Exception e) { toast("无法清除本地数据"); }
             }).setNegativeButton("取消", null).show();
     }
     private void switchDemo(boolean value) {
         if (BUSY.get()) { toast("请等待同步结束"); return; }
-        if (settingsDialog != null) settingsDialog.dismiss();
+
         demo = value; prefs.edit().putBoolean("demo", value).apply(); openStore(); error = ""; DEMO_RETRY.reset();
         filter = "today"; project = ""; build(); if (!demo) sync(false);
     }
