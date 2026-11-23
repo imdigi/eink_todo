@@ -183,7 +183,7 @@ public final class MainActivity extends Activity {
         dateLabel = text("", 14, false);
         dateLabel.setPadding(0, dp(3), 0, dp(8)); content.addView(dateLabel);
         taskScroll = new ScrollView(this); taskScroll.setFillViewport(true); taskScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        taskScroll.setVerticalScrollBarEnabled(true); taskScroll.setScrollbarFadingEnabled(false);
+        taskScroll.setVerticalScrollBarEnabled(false); taskScroll.setHorizontalScrollBarEnabled(false);
         tasksBox = column(); taskScroll.addView(tasksBox);
         content.addView(taskScroll, new LinearLayout.LayoutParams(-1, 0, 1));
         if (!split) content.addView(footer, new LinearLayout.LayoutParams(-1, -2));
@@ -336,12 +336,12 @@ public final class MainActivity extends Activity {
         for(boolean overdue:new boolean[]{false,true}) {
             List<Core.Task> group=new ArrayList<>();
             for(Core.Task task:tasks)if((!today.equals(Core.dueDay(task.due,ZoneId.systemDefault())))==overdue)group.add(task);
-            LinearLayout header=row();header.setPadding(0,dp(12),0,dp(8));
-            header.addView(text(overdue?"逾期":"今天",18,true),new LinearLayout.LayoutParams(0,-2,1));
-            TextView number=text(String.valueOf(group.size()),14,false);number.setTextColor(0xff777777);header.addView(number);tasksBox.addView(header);
+            LinearLayout header=row();header.setTag(overdue?"date_group:overdue":"date_group:today");header.setPadding(0,dp(overdue?28:16),0,0);
+            TextView label=text(overdue?"逾期":"今天",18,true);label.setIncludeFontPadding(false);header.addView(label,new LinearLayout.LayoutParams(0,-2,1));
+            TextView number=text(String.valueOf(group.size()),14,false);number.setIncludeFontPadding(false);number.setTextColor(0xff777777);header.addView(number);tasksBox.addView(header);
             if(group.isEmpty()) {TextView empty=text("暂无任务",14,false);empty.setTextColor(0xff777777);empty.setPadding(0,dp(4),0,dp(14));tasksBox.addView(empty);}
             String scope=overdue?"today:overdue":"today:due_today";
-            for(Core.TreeRow node:trees.get(scope))taskRow(node,snapshot,scope);
+            boolean first=true;for(Core.TreeRow node:trees.get(scope)){taskRow(node,snapshot,scope,first?6:12);first=false;}
         }
     }
     private void renderSidebar(Store.Snapshot s) {
@@ -375,9 +375,10 @@ public final class MainActivity extends Activity {
         addButton(compactNav,countedButton("收件箱","inbox",""),1);
         addButton(compactNav,button("项目",v -> projects()),1);
     }
-    private void taskRow(Core.TreeRow node, Store.Snapshot s,String scope) {
+    private void taskRow(Core.TreeRow node, Store.Snapshot s,String scope) {taskRow(node,s,scope,12);}
+    private void taskRow(Core.TreeRow node, Store.Snapshot s,String scope,int topPadding) {
         Core.Task t=node.task;int indent=Math.min(node.depth,4)*22;
-        LinearLayout box = row(); box.setTag("task:"+t.id);box.setPadding(dp(indent), dp(12), 0, dp(12)); box.setGravity(Gravity.TOP);
+        LinearLayout box = row(); box.setTag("task:"+t.id);box.setPadding(dp(indent), dp(topPadding), 0, dp(12)); box.setGravity(Gravity.TOP);
         box.setBaselineAligned(false);
         boolean grouped=scope.startsWith("today:") && node.parent;
         CheckBox check = new InkRendering.Check(this); check.setText(""); check.setContentDescription("完成：" + t.content);

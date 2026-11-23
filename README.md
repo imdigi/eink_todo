@@ -2,7 +2,7 @@
 
 **未了之事，次第而行。**
 
-面向 Android 墨水屏设备的 Todoist 待办看板，适配 BOOX Leaf5+ 的左右分栏与低频刷新。当前源码版本为 **0.21.0**。
+面向 Android 墨水屏设备的 Todoist 待办看板，适配 BOOX Leaf5+ 的左右分栏与低频刷新。当前源码版本为 **0.21.1**。
 
 这是独立第三方应用，非由 Todoist 创建、关联或支持。
 
@@ -63,12 +63,12 @@ python3 tools/build.py
 
 可使用 `ANDROID_JAR` 指定 `android.jar`，或使用 `ANDROID_BUILD_TOOLS` 指定构建工具目录。
 
-输出为 `dist/weiliao-0.21.0.apk` 及 SHA-256 校验文件。首次构建会在 `.signing/` 内生成本地签名私钥和随机密码；这些文件、安装包和截图均不进入 Git。
+输出为 `dist/weiliao-0.21.1.apk` 及 SHA-256 校验文件。首次构建会在 `.signing/` 内生成本地签名私钥和随机密码；这些文件、安装包和截图均不进入 Git。
 
 已有签名可通过 `.signing/keystore-password.txt` 或 `INKTODO_KEYSTORE_PASSWORD` 环境变量提供密码。构建日志不会输出密码。**请私密备份原签名和密码，后续覆盖安装需要使用同一签名。**
 
 ```sh
-adb -s YOUR_DEVICE install -r dist/weiliao-0.21.0.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.21.1.apk
 ```
 
 诊断构建 `python3 tools/build.py --without-onyx-sdk` 排除文石 SDK，并临时禁用屏保和 SDK 刷新增强。
