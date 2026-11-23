@@ -14,7 +14,12 @@ final class SnapshotModel {
     }
     final String title,filter,project;final LocalDate day;final int pending;
     final Map<String,String> names;final List<Section> sections;
+    final String importantId,importantName;final List<Core.Task> goals;
     private SnapshotModel(String title,String filter,String project,LocalDate day,int pending,Map<String,String> names,List<Section> sections){
+        this(title,filter,project,day,pending,names,sections,"","",Collections.emptyList());
+    }
+    private SnapshotModel(String title,String filter,String project,LocalDate day,int pending,Map<String,String> names,List<Section> sections,String importantId,String importantName,List<Core.Task> goals){
+        this.importantId=importantId;this.importantName=importantName;this.goals=Collections.unmodifiableList(new ArrayList<>(goals));
         this.title=title;this.filter=filter;this.project=project;this.day=day;this.pending=pending;this.names=new TreeMap<>(names);this.sections=sections;
     }
     static SnapshotModel create(Collection<Core.Task> source,Set<String> hidden,String filter,String project,String inbox,Map<String,String> names,int pending,LocalDate day,ZoneId zone){
@@ -33,13 +38,26 @@ final class SnapshotModel {
     static SnapshotModel legacy(String title,List<Core.Task> tasks,Map<String,String> names,int pending){
         return new SnapshotModel(title,"project","",LocalDate.now(),pending,names,Collections.singletonList(new Section("",tasks.size(),Core.tree(tasks,Collections.emptySet(),tasks,Collections.emptySet(),true))));
     }
+    boolean hasImportant(){return !importantId.isEmpty();}
+    SnapshotModel withImportant(Collection<Core.Task> source,Set<String> hidden,String id,Map<String,String> activeProjects){
+        if(id==null||id.isEmpty()||!activeProjects.containsKey(id))return this;
+        Set<String> alreadyShown=new HashSet<>();
+        for(Section section:sections)for(Core.TreeRow row:section.rows)if(!row.context)alreadyShown.add(row.task.id);
+        List<Core.Task> roots=new ArrayList<>();
+        for(Core.Task task:Core.visible(source,hidden,"project",id,day,ZoneId.systemDefault()))
+            if(task.parentId.isEmpty()&&!alreadyShown.contains(task.id))roots.add(task);
+        roots.sort(Comparator.comparingInt((Core.Task task)->task.order).thenComparing(task->task.id));
+        return new SnapshotModel(title,filter,project,day,pending,names,sections,id,activeProjects.get(id),roots);
+    }
     String fingerprint(int width,int height,String font)throws Exception{
-        JSONObject root=new JSONObject().put("style",9).put("title",title).put("filter",filter).put("project",project).put("day",day.toString()).put("pending",pending).put("width",width).put("height",height).put("font",font);
+        JSONObject root=new JSONObject().put("style",10).put("title",title).put("filter",filter).put("project",project).put("day",day.toString()).put("pending",pending).put("width",width).put("height",height).put("font",font);
         JSONArray groups=new JSONArray();for(Section section:sections){
             JSONArray rows=new JSONArray();for(Core.TreeRow row:section.rows){Core.Task t=row.task;
                 rows.put(new JSONArray().put(t.id).put(t.content).put(t.description).put(t.due).put(t.recurring).put(t.priority).put(t.order).put(t.parentId).put(row.depth).put(row.context).put(row.parent).put(row.matchingDescendants).put(names.getOrDefault(t.projectId,"")));
             }groups.put(new JSONArray().put(section.name).put(section.count).put(rows));
-        }root.put("sections",groups);
+        }root.put("sections",groups).put("important_id",importantId).put("important_name",importantName);
+        JSONArray goalsJson=new JSONArray();for(Core.Task task:goals)goalsJson.put(new JSONArray().put(task.id).put(task.content).put(task.description).put(task.order));
+        root.put("goals",goalsJson);
         byte[] hash=MessageDigest.getInstance("SHA-256").digest(root.toString().getBytes(StandardCharsets.UTF_8));StringBuilder out=new StringBuilder();for(byte b:hash)out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();
     }
 }

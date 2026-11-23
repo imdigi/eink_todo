@@ -53,7 +53,7 @@ public final class PhotoScreensaverRunner extends Instrumentation {
                 original=new JSONObject(backup.getString("original","{}"));controller.setAutomatic(false);
                 store=new Store(app,false);android.database.sqlite.SQLiteDatabase db=store.getReadableDatabase();db.beginTransactionNonExclusive();
                 Store.Snapshot snapshot;try{snapshot=store.snapshot();db.setTransactionSuccessful();}finally{db.endTransaction();}
-                model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),original.optString("filter","today"),original.optString("project",""),snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());synced=snapshot.lastSync;
+                model=ScreensaverProjects.model(app,false,snapshot,original.optString("filter","today"),original.optString("project",""));synced=snapshot.lastSync;
             }else throw new IllegalArgumentException("Expected mode=demo or mode=restore");
             Point size=new Point();((WindowManager)app.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             FontStore.Choice face=ScreensaverFont.load(app);String font=face.file;

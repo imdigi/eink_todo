@@ -48,7 +48,7 @@ final class ScreensaverController {
             if(!configured()||!automatic())return Outcome.DISABLED;
             boolean demo=prefs.getBoolean("source_demo",false);String filter=prefs.getString("filter","today"),project=prefs.getString("project","");
             Store.Snapshot snapshot=source.read(demo);
-            SnapshotModel model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),filter,project,snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());
+            SnapshotModel model=ScreensaverProjects.model(context,demo,snapshot,filter,project);
             FontStore.Choice choice=ScreensaverFont.load(context);String font=choice.file;
             Point size=new Point();((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             signature=model.fingerprint(size.x,size.y,font);

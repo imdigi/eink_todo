@@ -40,10 +40,33 @@ final class SnapshotImage {
     }
     private static TextPaint paint(float size,Typeface face,boolean bold){TextPaint p=new TextPaint(Paint.ANTI_ALIAS_FLAG|Paint.SUBPIXEL_TEXT_FLAG);p.setColor(Color.BLACK);p.setTextSize(size);p.setTextLocale(Locale.SIMPLIFIED_CHINESE);p.setTypeface(Typeface.create(face,bold?Typeface.BOLD:Typeface.NORMAL));return p;}
     private static void draw(Canvas c,StaticLayout words,float x,float y){c.save();c.translate(x,y);words.draw(c);c.restore();}
+    private static void drawGoals(Canvas canvas,SnapshotModel model,int left,int right,float top,float bottom,float unit,Typeface face){
+        Paint rule=new Paint(Paint.ANTI_ALIAS_FLAG);rule.setColor(0xff666666);rule.setStrokeWidth(Math.max(1,1.5f*unit));
+        canvas.drawLine(left-32*unit,top,left-32*unit,bottom,rule);
+        canvas.drawText("常记之事",left,top+44*unit,paint(42*unit,face,false));
+        TextPaint detail=paint(28*unit,face,false);detail.setColor(0xff333333);
+        StaticLayout project=layout(model.importantName+" · "+model.goals.size()+" 项",detail,right-left,2);draw(canvas,project,left,top+65*unit);
+        float y=top+65*unit+project.getHeight()+36*unit;int shown=0;
+        if(model.goals.isEmpty()){draw(canvas,layout("暂无未完成主任务",paint(30*unit,face,false),right-left,2),left,y);return;}
+        for(Core.Task task:model.goals){
+            StaticLayout title=layout(task.content,paint(39*unit,face,false),right-left-Math.round(43*unit),3);
+            TextPaint descriptionPaint=paint(30*unit,face,false);descriptionPaint.setColor(0xff252525);
+            StaticLayout description=task.description.trim().isEmpty()?null:layout(task.description.trim(),descriptionPaint,right-left-Math.round(43*unit),2);
+            float rowHeight=title.getHeight()+(description==null?0:description.getHeight()+10*unit);
+            if(y+rowHeight>bottom-48*unit)break;
+            rule.setColor(Color.BLACK);rule.setStyle(Paint.Style.STROKE);rule.setStrokeWidth(Math.max(1.5f,2*unit));
+            canvas.drawRect(left,y+10*unit,left+28*unit,y+38*unit,rule);draw(canvas,title,left+43*unit,y);
+            if(description!=null)draw(canvas,description,left+43*unit,y+title.getHeight()+10*unit);
+            y+=Math.max(38*unit,rowHeight)+32*unit;shown++;
+        }
+        if(shown<model.goals.size())draw(canvas,layout("另有 "+(model.goals.size()-shown)+" 项，请唤醒查看",detail,right-left,2),left,Math.min(y,bottom-68*unit));
+    }
     static Bitmap create(int width,int height,SnapshotModel model,long synced,Typeface face){
         if(width<320||height<320||width>4096||height>4096)throw new IllegalArgumentException("Invalid image size");
         Bitmap image=Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(image);c.drawColor(Color.WHITE);
-        float unit=Math.max(.5f,Math.min(width,height)/1264f);int margin=Math.round(68*unit),content=width-2*margin;
+        float unit=Math.max(.5f,Math.min(width,height)/1264f);int margin=Math.round(68*unit),fullContent=width-2*margin;
+        int content=model.hasImportant()?Math.round(fullContent*720f/1128f):fullContent;
+        int mainRight=margin+content;
         float headingUnit=unit*Math.min(1f,height/(1680*unit));
         TextPaint termPaint=paint(132*headingUnit,face,false);
         String term=SolarTerm.name(model.day);float y=80*headingUnit,termX=margin;
@@ -53,6 +76,7 @@ final class SnapshotImage {
         for(int i=0;i<term.length();i++){String letter=term.substring(i,i+1);c.drawText(letter,termX,y-bounds.top,termPaint);termX+=termPaint.measureText(letter)+termPaint.getTextSize()*.18f;}
         y+=bounds.height()+16*headingUnit;
         TextPaint datePaint=paint(34*headingUnit,face,false);String date=SolarTerm.date(model.day);datePaint.getTextBounds(date,0,date.length(),bounds);c.drawText(date,margin,y-bounds.top,datePaint);y+=bounds.height()+52*headingUnit;
+        if(model.hasImportant())drawGoals(c,model,margin+content+Math.round(88*unit),width-margin,y,height-88*unit,unit,face);
         Paint rule=new Paint(Paint.ANTI_ALIAS_FLAG);rule.setColor(0xff666666);rule.setStrokeWidth(Math.max(1,unit));
         List<List<Row>> groups=new ArrayList<>();float[] desired=new float[model.sections.size()],space=new float[desired.length];
         float budget=Math.max(0,height-88*unit-y);
@@ -68,7 +92,7 @@ final class SnapshotImage {
         for(int group=0;group<groups.size();group++){
             SnapshotModel.Section section=model.sections.get(group);float bottom=y+space[group],rowY=y;
             if(!section.name.isEmpty()){
-                c.drawText(section.name,margin,rowY+44*unit,paint(44*unit,face,false));TextPaint count=paint(28*unit,face,false);count.setColor(0xff333333);String n=section.count+" 项";c.drawText(n,width-margin-count.measureText(n),rowY+44*unit,count);c.drawLine(margin,rowY+64*unit,width-margin,rowY+64*unit,rule);rowY+=94*unit;
+                c.drawText(section.name,margin,rowY+44*unit,paint(44*unit,face,false));TextPaint count=paint(28*unit,face,false);count.setColor(0xff333333);String n=section.count+" 项";c.drawText(n,mainRight-count.measureText(n),rowY+44*unit,count);c.drawLine(margin,rowY+64*unit,mainRight,rowY+64*unit,rule);rowY+=94*unit;
             }
             int shown=0;List<Row> rows=groups.get(group);
             if(rows.isEmpty()&&rowY+34*unit<bottom)c.drawText("暂无任务",margin,rowY+30*unit,paint(30*unit,face,false));
@@ -80,7 +104,7 @@ final class SnapshotImage {
                 rule.setColor(Color.BLACK);rule.setStyle(Paint.Style.STROKE);rule.setStrokeWidth(Math.max(1.5f,2*unit));c.drawRect(x,rowY+11*unit,x+32*unit,rowY+43*unit,rule);rule.setStyle(Paint.Style.FILL);rule.setStrokeWidth(Math.max(1,unit));rule.setColor(0xff666666);
                 draw(c,row.title,textX,rowY);float next=rowY+row.title.getHeight();
                 if(row.description!=null){next+=10*unit;draw(c,row.description,textX,next);next+=row.description.getHeight();}
-                if(row.meta!=null){next+=8*unit;draw(c,row.meta,textX,next);if(!row.project.isEmpty()){TextPaint p=paint(28*unit,face,false);p.setColor(0xff333333);String name=TextUtils.ellipsize(row.project,p,(content-row.indent-58*unit)/3,TextUtils.TruncateAt.END).toString();c.drawText(name,width-margin-p.measureText(name),next-row.meta.getPaint().getFontMetrics().ascent,p);}}
+                if(row.meta!=null){next+=8*unit;draw(c,row.meta,textX,next);if(!row.project.isEmpty()){TextPaint p=paint(28*unit,face,false);p.setColor(0xff333333);String name=TextUtils.ellipsize(row.project,p,(content-row.indent-58*unit)/3,TextUtils.TruncateAt.END).toString();c.drawText(name,mainRight-p.measureText(name),next-row.meta.getPaint().getFontMetrics().ascent,p);}}
                 rowY+=row.height;if(!row.node.context)shown++;
             }
             if(shown<section.count)c.drawText("另有 "+(section.count-shown)+" 项，请唤醒查看",margin,bottom-9*unit,paint(28*unit,face,false));

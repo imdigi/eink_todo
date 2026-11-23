@@ -18,7 +18,7 @@ public final class ScreensaverReadProbe extends Instrumentation {
             diagnostic="configured="+controller.configured()+"; automatic="+automatic+"; demo="+prefs.getBoolean("source_demo",false)+"; filter="+prefs.getString("filter","")+"; needs_submit="+prefs.getBoolean("needs_submit",false)+"\n";
             diagnostic+="refresh outcome="+controller.refreshNow()+"; error="+prefs.getString("last_error","")+"\n";
             store=new Store(app,false);Store.Snapshot snapshot=store.snapshot();
-            SnapshotModel model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),prefs.getString("filter","today"),prefs.getString("project",""),snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());
+            SnapshotModel model=ScreensaverProjects.model(app,false,snapshot,prefs.getString("filter","today"),prefs.getString("project",""));
             Point size=new Point();((WindowManager)app.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             FontStore.Choice face=ScreensaverFont.load(app);String font=face.file;
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,face.face);ScreensaverExport.Published image;

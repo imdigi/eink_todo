@@ -623,6 +623,16 @@ public final class MainActivity extends Activity {
         addButton(actions,button("清残影",v -> {settingsDialog.dismiss();root.post(() -> {if(!eink.clean(root))toast("文石增强未启用，已执行普通重绘");});}),1);tools.addView(actions);
         settingSection(tools,"待办屏保");
         settingAction(tools,button("待办屏保预览…",v -> {settingsDialog.dismiss();previewScreensaver();}));
+        Store.Snapshot projectSnapshot;
+        try{projectSnapshot=store.snapshot();}catch(Exception e){toast("无法读取项目，请同步后重试");return;}
+        final List<String> importantIds=new ArrayList<>(),importantNames=new ArrayList<>();
+        importantIds.add("");importantNames.add("不设置重要项目（单栏）");
+        for(Map.Entry<String,String> entry:projectSnapshot.projects.entrySet()){importantIds.add(entry.getKey());importantNames.add(entry.getValue());}
+        String savedImportant=prefs.getString(ScreensaverProjects.key(demo),"");
+        Spinner importantProject=spinner(importantNames.toArray(new String[0]));importantProject.setTag("screensaver_important_project");
+        importantProject.setSelection(Math.max(0,importantIds.indexOf(savedImportant)));settingRow(tools,"重要项目",importantProject);
+        settingHint(tools,"选择已同步的项目后，锁屏左侧显示待办，右侧“常记之事”只显示未完成的主任务，显示描述，隐藏子任务和日期。已在左侧出现的任务不重复展示。保存后生效。");
+        if(!savedImportant.isEmpty()&&!projectSnapshot.projects.containsKey(savedImportant))settingHint(tools,"原重要项目已归档或删除，当前使用单栏；可重新选择。");
         final FontStore.Choice[] saverFont={ScreensaverFont.load(this)};
         TextView saverFontName=text("屏保字体："+saverFont[0].name,14,false);tools.addView(saverFontName);
         TextView saverFontPreview=text("小雪 · 未了之事，次第而行\n今天 11月23日 · 阅读与日课",20,false);
@@ -655,7 +665,9 @@ public final class MainActivity extends Activity {
         Button disconnectButton=button("断开并清除本机数据…",v -> disconnect());disconnectButton.setTextColor(0xff555555);settingAction(tools,disconnectButton);
         settingHint(tools,"未了 "+appVersion()+(OnyxScreen.sdkAvailable()?"":" · 无 SDK 对照版")+" · 独立第三方应用，非由 Todoist 创建、关联或支持。");
         settingsDialog=new FontDialogBuilder(this).setTitle("设置").setView(body).setPositiveButton("保存",(d,w) -> {
-            prefs.edit().putInt("interval",mins[interval.getSelectedItemPosition()]).putInt("font",fonts[font.getSelectedItemPosition()])
+            String selectedImportant=importantIds.get(importantProject.getSelectedItemPosition());
+            try{if(!selectedImportant.isEmpty()&&!store.snapshot().projects.containsKey(selectedImportant)){toast("该项目已不可用，请重新选择");return;}}catch(Exception e){toast("无法读取项目，请重试");return;}
+            prefs.edit().putString(ScreensaverProjects.key(demo),selectedImportant).putInt("interval",mins[interval.getSelectedItemPosition()]).putInt("font",fonts[font.getSelectedItemPosition()])
                 .putBoolean("awake",awake.isChecked()).putBoolean("split",columns.isChecked()).putBoolean("eink",enhanced.isChecked())
                 .putBoolean("square_buttons",square.isChecked()).putString("font_file",selectedFont[0].file).putString("font_name",selectedFont[0].name)
                 .putString(ScreensaverFont.FILE,saverFont[0].file).putString(ScreensaverFont.NAME,saverFont[0].name)
@@ -689,7 +701,7 @@ public final class MainActivity extends Activity {
         try {
             Store.Snapshot s = store.snapshot(); android.graphics.Point size = new android.graphics.Point();
             getWindowManager().getDefaultDisplay().getRealSize(size);
-            SnapshotModel model=SnapshotModel.create(s.tasks,s.hidden(),filter,project,s.inboxId,s.taskProjectNames(),s.pending(),LocalDate.now(),ZoneId.systemDefault());
+            SnapshotModel model=ScreensaverProjects.model(this,demo,s,filter,project);
             FontStore.Choice snapshotFont=ScreensaverFont.load(this);
             final boolean previewDemo=demo;final String previewFont=snapshotFont.file;
             android.graphics.Bitmap bitmap = SnapshotImage.create(size.x,size.y,model,s.lastSync,snapshotFont.face);
