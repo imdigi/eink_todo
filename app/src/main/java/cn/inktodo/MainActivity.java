@@ -607,11 +607,10 @@ public final class MainActivity extends Activity {
         void entry(String label,String value,String destination){
             LinearLayout item=settingItem(label,value);item.setTag("settings_entry:"+destination);TextView arrow=text("›",30,false);item.addView(arrow,new LinearLayout.LayoutParams(dp(24),-2));item.setClickable(true);item.setFocusable(true);item.setContentDescription(label);item.setOnClickListener(v->navigate(destination));page.addView(item);divider(page);
         }
-        void group(String label){TextView h=text(label,13,false);h.setTextColor(0xff555555);h.setPadding(dp(10),dp(20),0,dp(8));page.addView(h);}
         void home()throws Exception{
-            group("日常使用");entry("显示",font()+" 号字 · "+uiFont.name,"display");entry("同步","每 "+prefs.getInt("interval",10)+" 分钟","sync");
-            group("墨水屏与锁屏");Store.Snapshot snapshot=store.snapshot();String id=prefs.getString(ScreensaverProjects.key(demo),"");entry("待办屏保",snapshot.projects.getOrDefault(id,"单栏"),"screensaver");entry("墨水屏",prefs.getBoolean("eink",false)?"刷新优化已开启":"沿用系统刷新","eink");
-            group("工具与账号");entry("工具","操作记录、清残影","tools");entry("账号",demo?"演示模式":token.isEmpty()?"未连接":"已连接 Todoist","account");
+            entry("显示",font()+" 号字 · "+uiFont.name,"display");entry("同步","每 "+prefs.getInt("interval",10)+" 分钟","sync");
+            Store.Snapshot snapshot=store.snapshot();String id=prefs.getString(ScreensaverProjects.key(demo),"");entry("待办屏保",snapshot.projects.getOrDefault(id,"单栏"),"screensaver");entry("墨水屏",prefs.getBoolean("eink",false)?"刷新优化已开启":"沿用系统刷新","eink");
+            entry("工具","操作记录、清残影","tools");entry("账号",demo?"演示模式":token.isEmpty()?"未连接":"已连接 Todoist","account");
 
         }
         void changed(){build();screenFlag();configureEink();}

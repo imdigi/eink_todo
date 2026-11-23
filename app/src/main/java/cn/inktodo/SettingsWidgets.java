@@ -10,6 +10,8 @@ final class SettingsWidgets {
     static final class Toggle extends CompoundButton {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
         Toggle(Context context){super(context);setBackgroundColor(Color.TRANSPARENT);setMinWidth(0);setMinimumWidth(0);setPadding(0,0,0,0);setStateListAnimator(null);}
+        // No stateful drawable exists to invalidate this custom-painted control.
+        @Override protected void drawableStateChanged(){super.drawableStateChanged();invalidate();}
         @Override public CharSequence getAccessibilityClassName(){return "android.widget.Switch";}
         @Override protected void onMeasure(int w,int h){setMeasuredDimension(resolveSize(dp(60),w),resolveSize(dp(48),h));}
         private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}

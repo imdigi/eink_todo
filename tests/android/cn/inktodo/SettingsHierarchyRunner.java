@@ -3,6 +3,7 @@ package cn.inktodo;
 import android.app.*;
 import android.content.*;
 import android.graphics.Rect;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.*;
@@ -37,6 +38,11 @@ public class SettingsHierarchyRunner extends Instrumentation {
     }
     void waitImport()throws Exception{long until=android.os.SystemClock.uptimeMillis()+10000;while(field("fontImportResult")!=null&&android.os.SystemClock.uptimeMillis()<until)android.os.SystemClock.sleep(100);waitForIdleSync();}
     static void restore(SharedPreferences prefs,Map<String,?> data){SharedPreferences.Editor edit=prefs.edit().clear();for(Map.Entry<String,?> entry:data.entrySet()){Object v=entry.getValue();String key=entry.getKey();if(v instanceof Boolean)edit.putBoolean(key,(Boolean)v);else if(v instanceof Integer)edit.putInt(key,(Integer)v);else if(v instanceof Long)edit.putLong(key,(Long)v);else if(v instanceof Float)edit.putFloat(key,(Float)v);else if(v instanceof String)edit.putString(key,(String)v);}edit.commit();}
+    Bitmap switchImage()throws Exception{
+        int[] xy=new int[2],size=new int[2];main(()->{View control=view("settings_toggle:square_buttons");control.getLocationOnScreen(xy);size[0]=control.getWidth();size[1]=control.getHeight();});
+        android.os.SystemClock.sleep(250);Bitmap screen=getUiAutomation().takeScreenshot();
+        try{return Bitmap.createBitmap(screen,xy[0],xy[1],size[0],size[1]);}finally{screen.recycle();}
+    }
     @Override public void onCreate(Bundle args){super.onCreate(args);start();}
     @Override public void onStart(){Bundle out=new Bundle();Context app=getTargetContext();SharedPreferences prefs=app.getSharedPreferences("settings",0),saver=app.getSharedPreferences("screensaver",0);
         Map<String,?> original=prefs.getAll(),saverOriginal=saver.getAll();Set<String> before=new HashSet<>();File[] existing=FontStore.directory(app).listFiles();if(existing!=null)for(File file:existing)before.add(file.getName());
@@ -52,11 +58,11 @@ public class SettingsHierarchyRunner extends Instrumentation {
             main(()->{set("store",isolated);set("demo",true);set("filter","project");set("project","reading");Method build=MainActivity.class.getDeclaredMethod("build");build.setAccessible(true);build.invoke(activity);});
             main(()->{((ScrollView)field("taskScroll")).scrollTo(0,180);((Map<String,Set<String>>)field("branchFolds")).put("preserve-fixture",new HashSet<>(Collections.singleton("folded")));});
             main(()->open());
-            Rect[] initial={null};main(()->{initial[0]=bounds();check(initial[0].height()>300,"full-page settings allocates the screen content height");check(!hasText(decor(),"保存")&&!hasText(decor(),"取消"),"settings home has no global Save or Cancel action");check(((View)field("root")).getForeground()==null,"full-page settings does not require a background overlay");check(view("settings_entry:display")!=null&&view("settings_entry:screensaver")!=null,"home offers feature entries instead of main tabs");});
+            Rect[] initial={null};main(()->{initial[0]=bounds();check(initial[0].height()>300,"full-page settings allocates the screen content height");check(!hasText(decor(),"保存")&&!hasText(decor(),"取消"),"settings home has no global Save or Cancel action");check(((View)field("root")).getForeground()==null,"full-page settings does not require a background overlay");check(!hasText(decor(),"日常使用")&&!hasText(decor(),"墨水屏与锁屏")&&!hasText(decor(),"工具与账号"),"home omits redundant group headings");check(view("settings_entry:display")!=null&&view("settings_entry:screensaver")!=null,"home offers feature entries instead of main tabs");});
             for(String name:new String[]{"display","sync","screensaver","eink","tools","account","root"}){main(()->page(name));main(()->check(initial[0].equals(bounds()),"full-page bounds on page: "+name));}
             main(()->check(initial[0].equals(bounds()),"returning from all six feature pages preserves screen bounds"));
             main(()->{page("display");activity.onBackPressed();check(isOpen()&&((TextView)view("settings_heading")).getText().toString().equals("设置"),"Android Back navigates from feature page to settings home");});
-            main(()->page("display"));main(()->{CompoundButton square=view("settings_toggle:square_buttons");square.performClick();check(prefs.getBoolean("square_buttons",true)==square.isChecked(),"display toggle persists without saving");});
+            main(()->page("display"));Bitmap beforeSwitch=switchImage();main(()->{CompoundButton square=view("settings_toggle:square_buttons");square.performClick();check(prefs.getBoolean("square_buttons",true)==square.isChecked(),"display toggle persists without saving");});Bitmap afterSwitch=switchImage();check(!beforeSwitch.sameAs(afterSwitch),"switch pixels update immediately without reopening the page");beforeSwitch.recycle();afterSwitch.recycle();
             main(()->{Spinner size=view("settings_font_size");size.setSelection(2);});main(()->check(prefs.getInt("font",0)==26,"task size is saved immediately"));
             main(()->page("sync"));main(()->{Spinner interval=view("settings_sync_interval");interval.setSelection(2);});main(()->check(prefs.getInt("interval",0)==15,"sync interval is saved immediately"));
             main(()->page("screensaver"));main(()->{Spinner project=view("screensaver_important_project");check(project.getCount()>1,"important project list uses cached demo projects");project.setSelection(1);});

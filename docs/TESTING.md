@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.20.0.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.20.1.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
@@ -32,7 +32,7 @@ adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.Verificati
 | `SyncVerificationRunner` | 演示数据库下的同步按钮、限流和错误提示、同步中状态优先；13 项 |
 | `ScreensaverUpdateRunner` | 隔离数据与模拟提交器下的内容变化、固定路径覆盖、去重、重试、设置强制提交和 SDK 路径缓存回归；29 项 |
 | `ImportantProjectRunner` | 隔离项目选择与即时生效、归档回退、主任务与描述更新、自动提交去重及双栏渲染；16 项 |
-| `SettingsHierarchyRunner` | 全屏六个设置页、黑白开关即时保存、返回保留项目/展开/滚动、字体预览确认及默认恢复；34 项 |
+| `SettingsHierarchyRunner` | 全屏六个设置页、黑白开关即时保存、返回保留项目/展开/滚动、字体预览确认及默认恢复、开关即时重绘；36 项 |
 | `ScreensaverFontUiRunner` / `FontVerificationRunner` | 兼容入口，运行同一套分级设置与字体验证 |
 | `ScreensaverFontRunner` | 独立字体存储、恢复默认宋体、错误回退及图片差异；6 项，需 `-e font` 指定设备可读的 TTF；结束后保留导入字体 |
 | `ScreensaverVerificationRunner` | PNG 编码、固定路径原子覆盖、旧图片清理和完整性与唯一临时导入；21 项 |
