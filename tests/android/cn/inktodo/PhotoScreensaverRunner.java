@@ -56,7 +56,7 @@ public final class PhotoScreensaverRunner extends Instrumentation {
                 model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),original.optString("filter","today"),original.optString("project",""),snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());synced=snapshot.lastSync;
             }else throw new IllegalArgumentException("Expected mode=demo or mode=restore");
             Point size=new Point();((WindowManager)app.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
-            String font=settings.getString("font_file","");FontStore.Choice face=FontStore.load(app,font,settings.getString("font_name","系统默认"));
+            FontStore.Choice face=ScreensaverFont.load(app);String font=face.file;
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,synced,face.face);ScreensaverExport.Published image,transfer;
             try{byte[] data=ScreensaverExport.encode(bitmap);image=ScreensaverExport.publish(app,data,size.x,size.y);transfer=ScreensaverExport.publishImport(app,data,size.x,size.y,"InkTodo");}finally{bitmap.recycle();}
             CountDownLatch result=new CountDownLatch(1);StringBuilder messages=new StringBuilder();

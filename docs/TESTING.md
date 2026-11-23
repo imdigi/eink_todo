@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.16.1.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.17.0.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
@@ -31,6 +31,8 @@ adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.Verificati
 | `NetworkVerificationRunner` | 注入网络和时钟的唤醒等待、每秒本地检查、15 秒超时、恢复及离开取消；14 项 |
 | `SyncVerificationRunner` | 演示数据库下的同步按钮、限流和错误提示、同步中状态优先；13 项 |
 | `ScreensaverUpdateRunner` | 隔离数据与模拟提交器下的内容变化、固定路径覆盖、去重、重试和 SDK 路径缓存回归；28 项 |
+| `ScreensaverFontUiRunner` | 屏保字体文件选择器、取消、保存及恢复默认；7 项 |
+| `ScreensaverFontRunner` | 独立字体存储、恢复默认宋体、错误回退及图片差异；6 项，需 `-e font` 指定设备可读的 TTF；结束后保留导入字体 |
 | `ScreensaverVerificationRunner` | PNG 编码、固定路径原子覆盖、旧图片清理和完整性与唯一临时导入；21 项 |
 | `TitleVerificationRunner` | Markdown 标题编辑、保存、取消及恢复；结束后恢复设置 |
 

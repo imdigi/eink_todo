@@ -20,7 +20,7 @@ public final class ScreensaverReadProbe extends Instrumentation {
             store=new Store(app,false);Store.Snapshot snapshot=store.snapshot();
             SnapshotModel model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),prefs.getString("filter","today"),prefs.getString("project",""),snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());
             Point size=new Point();((WindowManager)app.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
-            String font=settings.getString("font_file","");FontStore.Choice face=FontStore.load(app,font,settings.getString("font_name","系统默认"));
+            FontStore.Choice face=ScreensaverFont.load(app);String font=face.file;
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,face.face);ScreensaverExport.Published image;
             try{image=ScreensaverExport.publishImport(app,ScreensaverExport.encode(bitmap),size.x,size.y,"InkTodo");}finally{bitmap.recycle();}
             CountDownLatch closed=new CountDownLatch(1);StringBuilder events=new StringBuilder();

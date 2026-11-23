@@ -71,12 +71,12 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
             List<Core.Task> fontFixture=Arrays.asList(new Core.Task(new JSONObject().put("id","p").put("project_id","sample").put("content","FONT")),
                 new Core.Task(item("a","p",0,"FONT")),new Core.Task(item("b","p",-1,"FONT")));
             SnapshotModel fontModel=SnapshotModel.create(fontFixture,Collections.emptySet(),"today","","",Collections.emptyMap(),0,LocalDate.now(),ZoneId.systemDefault());
-            Bitmap styles=SnapshotImage.create(1264,1680,fontModel,0,Typeface.DEFAULT);List<Integer> parents=boxes(styles,60),children=boxes(styles,92);
+            Bitmap styles=SnapshotImage.create(1264,1680,fontModel,0,Typeface.DEFAULT);List<Integer> parents=boxes(styles,68),children=boxes(styles,110);
             check(parents.size()==2&&children.size()==2,"both context parents and child rows have visible checkboxes in the snapshot");
-            check(Math.abs(glyphHeight(styles,108,parents.get(0)-3)-glyphHeight(styles,140,children.get(0)-3))<=2,"parent and child task titles use the same rendered font size");
-            check(ink(styles,60,0,1204,95)==0,"generous whitespace above solar term heading");
-            check(ink(styles,60,110,490,320)>1000&&ink(styles,640,110,1204,320)==0,"large solar term heading is left aligned");
-            check(ink(styles,60,270,350,325)>100,"date subtitle forms a compact group with the solar term");
+            check(Math.abs(glyphHeight(styles,122,parents.get(0)-11)-glyphHeight(styles,164,children.get(0)-11))<=2,"parent and child task titles use the same rendered font size");
+            check(ink(styles,68,0,1196,75)==0,"generous whitespace above solar term heading");
+            check(ink(styles,68,80,490,210)>1000&&ink(styles,640,80,1196,210)==0,"large solar term heading is left aligned");
+            check(ink(styles,68,210,350,260)>100,"date subtitle forms a compact group with the solar term");
             check(ink(styles,60,1600,1204,1680)==0,"removed bottom branding leaves a clean footer");styles.recycle();
             out.putString("stream","\n"+log+"SUCCESS "+checks+" automatic screensaver assertions\n");
         }catch(Throwable e){out.putString("stream","\n"+log+"FAIL "+android.util.Log.getStackTraceString(e));}
@@ -90,8 +90,8 @@ public final class ScreensaverUpdateRunner extends Instrumentation {
     List<Integer> boxes(Bitmap image,int x){
         List<Integer> ys=new ArrayList<>();
         for(int y=180;y<image.getHeight()-70;y++){
-            int ink=0;for(int k=3;k<24;k++){if(Color.red(image.getPixel(x+k,y))<220)ink++;if(Color.red(image.getPixel(x+k,y+27))<220)ink++;if(Color.red(image.getPixel(x,y+k))<220)ink++;if(Color.red(image.getPixel(x+27,y+k))<220)ink++;}
-            if(ink>=75&&(ys.isEmpty()||y-ys.get(ys.size()-1)>35))ys.add(y);
+            int ink=0;for(int k=3;k<29;k++){if(Color.red(image.getPixel(x+k,y))<220)ink++;if(Color.red(image.getPixel(x+k,y+32))<220)ink++;if(Color.red(image.getPixel(x,y+k))<220)ink++;if(Color.red(image.getPixel(x+32,y+k))<220)ink++;}
+            if(ink>=95&&(ys.isEmpty()||y-ys.get(ys.size()-1)>35))ys.add(y);
         }return ys;
     }
     int glyphHeight(Bitmap image,int x,int y){int top=100,bottom=-1;for(int yy=0;yy<44;yy++)for(int xx=x;xx<x+190;xx++)if(Color.red(image.getPixel(xx,y+yy))<150){top=Math.min(top,yy);bottom=Math.max(bottom,yy);}return bottom>=top?bottom-top+1:0;}

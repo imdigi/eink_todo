@@ -49,7 +49,7 @@ final class ScreensaverController {
             boolean demo=prefs.getBoolean("source_demo",false);String filter=prefs.getString("filter","today"),project=prefs.getString("project","");
             Store.Snapshot snapshot=source.read(demo);
             SnapshotModel model=SnapshotModel.create(snapshot.tasks,snapshot.hidden(),filter,project,snapshot.inboxId,snapshot.taskProjectNames(),snapshot.pending(),LocalDate.now(),ZoneId.systemDefault());
-            SharedPreferences settings=context.getSharedPreferences("settings",0);String font=settings.getString("font_file","");
+            FontStore.Choice choice=ScreensaverFont.load(context);String font=choice.file;
             Point size=new Point();((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay().getRealSize(size);
             signature=model.fingerprint(size.x,size.y,font);
             synchronized(gate){
@@ -57,7 +57,6 @@ final class ScreensaverController {
                 if(prefs.getInt("delivery_version",0)==1&&!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
                 if(signature.equals(prefs.getString("failed_hash",""))&&System.currentTimeMillis()-prefs.getLong("failed_at",0)<60000)return Outcome.RETRY_LATER;
             }
-            FontStore.Choice choice=FontStore.load(context,font,settings.getString("font_name","系统默认"));
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,choice.face);
             byte[] data;try{data=ScreensaverExport.encode(bitmap);}finally{bitmap.recycle();}
             synchronized(gate){

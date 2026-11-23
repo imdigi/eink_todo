@@ -17,5 +17,7 @@
     <instrumentation android:name="cn.inktodo.ScreensaverResultRunner" android:targetPackage="cn.inktodo.app" android:label="Ink Todo screensaver result observation" />
     <instrumentation android:name="cn.inktodo.PhotoScreensaverRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao temporary photo screensaver" />
     <instrumentation android:name="cn.inktodo.ScreensaverDeliveryRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao consecutive system screensaver delivery" />
+    <instrumentation android:name="cn.inktodo.ScreensaverFontUiRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao snapshot font settings picker" />
+    <instrumentation android:name="cn.inktodo.ScreensaverFontRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao independent snapshot fonts" />
     <instrumentation android:name="cn.inktodo.ScreensaverReadProbe" android:targetPackage="cn.inktodo.app" android:label="Weiliao screensaver import read probe" />
 </manifest>

@@ -97,7 +97,7 @@ public final class MainActivity extends Activity {
         v.setTypeface(uiFont.face,bold?Typeface.BOLD:Typeface.NORMAL);v.getPaint().setAntiAlias(true);v.getPaint().setSubpixelText(true);v.setIncludeFontPadding(true);return v;
     }
     private void applyFontTree(View view){
-        if(view instanceof TextView){TextView label=(TextView)view;int style=label.getTypeface()==null?Typeface.NORMAL:label.getTypeface().getStyle();boolean title="app_title".equals(view.getTag())||"title_preview".equals(view.getTag());label.setTypeface(title?SnapshotImage.headingTypeface():uiFont.face,style);}
+        if(view instanceof TextView){TextView label=(TextView)view;int style=label.getTypeface()==null?Typeface.NORMAL:label.getTypeface().getStyle();boolean title="app_title".equals(view.getTag())||"title_preview".equals(view.getTag());if(!"screensaver_font_preview".equals(view.getTag()))label.setTypeface(title?SnapshotImage.headingTypeface():uiFont.face,style);}
         if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int i=0;i<group.getChildCount();i++)applyFontTree(group.getChildAt(i));}
     }
     private final class FontDialogBuilder extends AlertDialog.Builder {
@@ -623,6 +623,26 @@ public final class MainActivity extends Activity {
         addButton(actions,button("清残影",v -> {settingsDialog.dismiss();root.post(() -> {if(!eink.clean(root))toast("文石增强未启用，已执行普通重绘");});}),1);tools.addView(actions);
         settingSection(tools,"待办屏保");
         settingAction(tools,button("待办屏保预览…",v -> {settingsDialog.dismiss();previewScreensaver();}));
+        final FontStore.Choice[] saverFont={ScreensaverFont.load(this)};
+        TextView saverFontName=text("屏保字体："+saverFont[0].name,14,false);tools.addView(saverFontName);
+        TextView saverFontPreview=text("小雪 · 未了之事，次第而行\n今天 11月23日 · 阅读与日课",20,false);
+        saverFontPreview.setTag("screensaver_font_preview");saverFontPreview.setPadding(0,dp(8),0,dp(12));tools.addView(saverFontPreview);
+        Runnable updateSaverFont=()->{saverFontName.setText("屏保字体："+saverFont[0].name);saverFontPreview.setTypeface(saverFont[0].face);};updateSaverFont.run();
+        LinearLayout saverFontActions=row();Button importSaverFont=button("导入屏保字体 TTF…",null),resetSaverFont=button("恢复默认宋体",null);
+        addButton(saverFontActions,importSaverFont,1);addButton(saverFontActions,resetSaverFont,1);tools.addView(saverFontActions);
+        resetSaverFont.setOnClickListener(v->{FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));saverFont[0]=ScreensaverFont.defaults();updateSaverFont.run();});
+        importSaverFont.setOnClickListener(v->{
+            if(fontImportResult!=null){toast("正在导入字体，请稍候");return;}
+            fontImportResult=choice->{
+                importSaverFont.setEnabled(true);if(owner[0]!=null)owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(true);
+                if(choice==null)return;
+                if(destroyed||owner[0]==null||!owner[0].isShowing()){FontStore.discard(this,choice,prefs.getString(ScreensaverFont.FILE,""));return;}
+                FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));saverFont[0]=choice;updateSaverFont.run();
+            };
+            try{Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);importSaverFont.setEnabled(false);owner[0].getButton(AlertDialog.BUTTON_POSITIVE).setEnabled(false);startActivityForResult(pick,91);}
+            catch(ActivityNotFoundException e){java.util.function.Consumer<FontStore.Choice> callback=fontImportResult;fontImportResult=null;callback.accept(null);toast("未找到文件选择器，请先启用系统文件管理器");}
+        });
+        settingHint(tools,"整张屏保统一使用此字体，与应用正文字体独立。导入后点击保存生效；恢复默认使用设备宋体。预览使用已保存的字体。");
         ScreensaverController saver=ScreensaverController.get(getApplicationContext());
         CheckBox autoSaver=settingCheck(tools,"随任务变化更新待办屏保",saver.automatic());autoSaver.setEnabled(saver.configured()&&OnyxScreen.sdkAvailable());
         settingHint(tools,"先设为系统屏保，再按最近设置的视图自动更新。休眠时展示最近已同步内容；可关闭自动更新。");
@@ -638,10 +658,11 @@ public final class MainActivity extends Activity {
             prefs.edit().putInt("interval",mins[interval.getSelectedItemPosition()]).putInt("font",fonts[font.getSelectedItemPosition()])
                 .putBoolean("awake",awake.isChecked()).putBoolean("split",columns.isChecked()).putBoolean("eink",enhanced.isChecked())
                 .putBoolean("square_buttons",square.isChecked()).putString("font_file",selectedFont[0].file).putString("font_name",selectedFont[0].name)
+                .putString(ScreensaverFont.FILE,saverFont[0].file).putString(ScreensaverFont.NAME,saverFont[0].name)
                 .putInt("gc_interval",gcValues[gc.getSelectedItemPosition()]).apply();uiFont=selectedFont[0];saver.setAutomatic(autoSaver.isChecked());build();
         }).setNegativeButton("取消",null).create();
         owner[0]=settingsDialog;
-        settingsDialog.setOnDismissListener(d -> FontStore.discard(this,selectedFont[0],prefs.getString("font_file","")));
+        settingsDialog.setOnDismissListener(d -> {FontStore.discard(this,selectedFont[0],prefs.getString("font_file",""));FontStore.discard(this,saverFont[0],prefs.getString(ScreensaverFont.FILE,""));});
         settingsDialog.show();applyFontTree(settingsDialog.getWindow().getDecorView());settingsDialog.getWindow().setLayout(dp(Math.min(640,getResources().getConfiguration().screenWidthDp-24)),WindowManager.LayoutParams.WRAP_CONTENT);
     }
     @Override protected void onActivityResult(int request,int result,Intent data){
@@ -669,8 +690,9 @@ public final class MainActivity extends Activity {
             Store.Snapshot s = store.snapshot(); android.graphics.Point size = new android.graphics.Point();
             getWindowManager().getDefaultDisplay().getRealSize(size);
             SnapshotModel model=SnapshotModel.create(s.tasks,s.hidden(),filter,project,s.inboxId,s.taskProjectNames(),s.pending(),LocalDate.now(),ZoneId.systemDefault());
-            final boolean previewDemo=demo;final String previewFont=uiFont.file;
-            android.graphics.Bitmap bitmap = SnapshotImage.create(size.x,size.y,model,s.lastSync,uiFont.face);
+            FontStore.Choice snapshotFont=ScreensaverFont.load(this);
+            final boolean previewDemo=demo;final String previewFont=snapshotFont.file;
+            android.graphics.Bitmap bitmap = SnapshotImage.create(size.x,size.y,model,s.lastSync,snapshotFont.face);
             ImageView preview = new ImageView(this); preview.setImageBitmap(bitmap); preview.setAdjustViewBounds(true); preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
             LinearLayout frame = column(); frame.setPadding(dp(12), dp(6), dp(12), dp(6));
             frame.addView(preview, new LinearLayout.LayoutParams(-1, Math.max(dp(180), size.y / 2)));

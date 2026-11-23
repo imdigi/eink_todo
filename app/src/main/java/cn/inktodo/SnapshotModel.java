@@ -34,7 +34,7 @@ final class SnapshotModel {
         return new SnapshotModel(title,"project","",LocalDate.now(),pending,names,Collections.singletonList(new Section("",tasks.size(),Core.tree(tasks,Collections.emptySet(),tasks,Collections.emptySet(),true))));
     }
     String fingerprint(int width,int height,String font)throws Exception{
-        JSONObject root=new JSONObject().put("style",8).put("title",title).put("filter",filter).put("project",project).put("day",day.toString()).put("pending",pending).put("width",width).put("height",height).put("font",font);
+        JSONObject root=new JSONObject().put("style",9).put("title",title).put("filter",filter).put("project",project).put("day",day.toString()).put("pending",pending).put("width",width).put("height",height).put("font",font);
         JSONArray groups=new JSONArray();for(Section section:sections){
             JSONArray rows=new JSONArray();for(Core.TreeRow row:section.rows){Core.Task t=row.task;
                 rows.put(new JSONArray().put(t.id).put(t.content).put(t.description).put(t.due).put(t.recurring).put(t.priority).put(t.order).put(t.parentId).put(row.depth).put(row.context).put(row.parent).put(row.matchingDescendants).put(names.getOrDefault(t.projectId,"")));
