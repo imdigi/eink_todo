@@ -17,7 +17,7 @@ python3 tools/test.py
 ```sh
 python3 tools/build.py
 python3 tools/build.py --test-apk
-adb -s YOUR_DEVICE install -r dist/weiliao-0.21.1.apk
+adb -s YOUR_DEVICE install -r dist/weiliao-0.22.0.apk
 adb -s YOUR_DEVICE install -r dist/ink-todo-tests.apk
 adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.VerificationRunner
 ```
@@ -36,12 +36,12 @@ adb -s YOUR_DEVICE shell am instrument -w cn.inktodo.tests/cn.inktodo.Verificati
 | `SettingsHierarchyRunner` | 全屏六个设置页、黑白开关即时保存、返回保留项目/展开/滚动、字体预览确认及默认恢复、开关即时重绘；36 项 |
 | `ScreensaverFontUiRunner` / `FontVerificationRunner` | 兼容入口，运行同一套分级设置与字体验证 |
 | `ScreensaverFontRunner` | 独立字体存储、恢复默认宋体、错误回退及图片差异；6 项，需 `-e font` 指定设备可读的 TTF；结束后保留导入字体 |
-| `ScreensaverVerificationRunner` | PNG 编码、固定路径原子覆盖、旧图片清理和完整性与唯一临时导入；21 项 |
+| `ScreensaverVerificationRunner` | PNG 编码、固定路径原子覆盖、旧图片清理和完整性与唯一临时导入、根目录自动清理及当前图保护；25 项 |
 | `TitleVerificationRunner` | Markdown 标题编辑、保存、取消及恢复；结束后恢复设置 |
 
 UI 验证可能启动真实应用并触发正常的前台同步。测试任务写入使用隔离数据库，建议在专用设备或演示环境运行。
 
-`ScreensaverResultRunner`、`ScreensaverReadProbe`、`ScreensaverDeliveryRunner` 和 `PhotoScreensaverRunner` 会替换设备系统屏保，属于手动工具，不作为默认自动测试运行。摄影工具支持 `-e mode demo` 与 `-e mode restore`，会在本机保存恢复配置。
+`ScreensaverStorageRunner`（17 项，使用真实缓存连续提交三次并检查仅保留两张）、`ScreensaverResultRunner`、`ScreensaverReadProbe`、`ScreensaverDeliveryRunner` 和 `PhotoScreensaverRunner` 会替换设备系统屏保，属于手动工具，不作为默认自动测试运行。摄影工具支持 `-e mode demo` 与 `-e mode restore`，会在本机保存恢复配置。
 
 自动检查无法替代对实体墨水屏清晰度、残影、刷新模式和休眠行为的观察。文石“应用引擎优化”中的刷新模式建议设为“标准”。
 

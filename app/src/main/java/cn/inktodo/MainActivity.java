@@ -668,6 +668,8 @@ public final class MainActivity extends Activity {
             choice("重要项目","screensaver_important_project",names.toArray(new String[0]),Math.max(0,ids.indexOf(selected)),i->{String id=ids.get(i);try{if(!id.isEmpty()&&!store.snapshot().projects.containsKey(id)){toast("项目已不可用，请重新选择");navigate("screensaver");return;}prefs.edit().putString(key,id).apply();controller.settingsChanged();}catch(Exception e){toast("无法读取项目，请重试");}});
             settingHint(page,"右侧显示所选项目的未完成主任务与描述，隐藏子任务和时间。已在左侧出现的任务不重复展示。");fontControls(true);
             action("待办屏保预览…",()->previewScreensaver());
+            action("清理历史屏保图片…",()->cleanLegacyScreensavers());
+            String cleanup=controller.prefs.getString("cleanup_error","");if(!cleanup.isEmpty())settingHint(page,cleanup);
             settingHint(page,controller.configured()?"修改屏保设置后直接生成新图并提交文石系统。":"先预览并设为系统屏保，之后设置变化会直接更新。");
             String error=controller.prefs.getString("last_error","");if(!error.isEmpty())settingHint(page,error);
         }
@@ -704,8 +706,31 @@ public final class MainActivity extends Activity {
             action("断开并清除本机数据…",()->disconnect());settingHint(page,"未了 "+appVersion()+" · 独立第三方应用，非由 Todoist 创建、关联或支持。");
         }
     }
+    private void cleanLegacyScreensavers(){
+        if(android.os.Build.VERSION.SDK_INT<30){toast("此设备请在图库中手动清理旧屏保");return;}
+        String permission=android.os.Build.VERSION.SDK_INT>=33&&getApplicationInfo().targetSdkVersion>=33?"android.permission.READ_MEDIA_IMAGES":"android.permission.READ_EXTERNAL_STORAGE";
+        if(checkSelfPermission(permission)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{permission},93);return;}
+        IMAGE_IO.execute(()->{
+            try{
+                ScreensaverController controller=ScreensaverController.get(getApplicationContext());
+                List<android.net.Uri> copies=new ScreensaverRetention(this).legacyCopies(controller.protectedImages());
+                runOnUiThread(()->{
+                    if(destroyed)return;
+                    if(copies.isEmpty()){controller.prefs.edit().remove("cleanup_error").apply();toast("没有可清理的历史屏保图片");return;}
+                    try{PendingIntent request=android.provider.MediaStore.createDeleteRequest(getContentResolver(),copies);startIntentSenderForResult(request.getIntentSender(),94,null,0,0,0);}
+                    catch(Exception error){toast("无法打开系统清理确认，请稍后重试");}
+                });
+            }catch(Exception error){runOnUiThread(()->toast("无法读取历史屏保图片，请检查图片访问权限"));}
+        });
+    }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==93){if(results.length>0&&results[0]==android.content.pm.PackageManager.PERMISSION_GRANTED)cleanLegacyScreensavers();else toast("未获得图片访问权限，历史图片未清理");}
+    }
     @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);if(request!=91)return;
+        super.onActivityResult(request,result,data);
+        if(request==94){if(result==RESULT_OK){ScreensaverController.get(this).prefs.edit().remove("cleanup_error").apply();toast("历史屏保图片已清理");}else toast("已取消清理，图片保留");return;}
+        if(request!=91)return;
         final java.util.function.Consumer<FontStore.Choice> callback=fontImportResult;
         if(callback==null)return;
         if(result!=RESULT_OK || data==null || data.getData()==null){fontImportResult=null;callback.accept(null);return;}

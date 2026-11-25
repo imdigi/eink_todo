@@ -57,6 +57,14 @@ public final class ScreensaverVerificationRunner extends Instrumentation {
             check(!new java.io.File(legacy.path).exists(),"old timestamped export is removed");
             check(new java.io.File(first.path).isFile()&&new java.io.File(protectedImage.path).isFile(),"current and protected images survive cleanup");
             check(new java.io.File(unrelated.path).isFile(),"unrelated image in same folder survives cleanup");
+            ScreensaverExport.Published root1=ScreensaverExport.publishImport(getTargetContext(),bytes,1264,1680,"InkTodo");created.add(root1);
+            ScreensaverExport.Published root2=ScreensaverExport.publishImport(getTargetContext(),bytes,1264,1680,"InkTodo");created.add(root2);
+            check(new java.io.File(root1.path).getParent().equals(android.os.Environment.getExternalStoragePublicDirectory("Pictures").getAbsolutePath()),"production import publishes directly to BOOX final directory");
+            Set<String> rootKeep=ScreensaverController.get(getTargetContext()).protectedImages();rootKeep.add(root2.path);
+            new ScreensaverRetention(getTargetContext()).prune(rootKeep,System.currentTimeMillis()+60000);
+            check(!new java.io.File(root1.path).exists(),"automatic retention removes old owned root import without system permission");
+            check(new java.io.File(root2.path).isFile(),"automatic retention protects explicitly retained root import");
+            for(String protectedPath:ScreensaverController.get(getTargetContext()).protectedImages())if(!protectedPath.isEmpty()&&ScreensaverRetention.generated(new java.io.File(protectedPath).getName()))check(new java.io.File(protectedPath).isFile(),"current actual system image survives root cleanup");
             result.putString("stream","\n"+log+"SUCCESS "+count+" screensaver export assertions\n");
         }catch(Throwable e){result.putString("stream","\n"+log+"FAIL "+android.util.Log.getStackTraceString(e));}
         finally{for(ScreensaverExport.Published image:created)try{getTargetContext().getContentResolver().delete(image.uri,null,null);}catch(Exception ignored){}}

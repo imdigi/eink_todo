@@ -49,17 +49,18 @@ final class ScreensaverExport {
         return publishNamed(context,data,width,height,folder,NAME);
     }
     static Published publishImport(Context context,byte[] data,int width,int height,String folder)throws Exception{
-        return publishNamed(context,data,width,height,folder,"InkTodo-"+System.currentTimeMillis()+"-"+java.util.UUID.randomUUID()+".png");
+        return publishNamed(context,data,width,height,folder.equals("InkTodo")?"":folder,"InkTodo-"+System.currentTimeMillis()+"-"+java.util.UUID.randomUUID()+".png");
     }
+    static String relativePath(String folder){return folder.isEmpty()?"Pictures/":"Pictures/"+folder+"/";}
     private static synchronized Published publishNamed(Context context,byte[] data,int width,int height,String folder,String name)throws Exception{
-        if(!folder.matches("[A-Za-z0-9_-]+"))throw new IllegalArgumentException("Invalid image directory");
+        if(!folder.isEmpty()&&!folder.matches("[A-Za-z0-9_-]+"))throw new IllegalArgumentException("Invalid image directory");
         validate(data,width,height);
         ContentResolver resolver=context.getContentResolver();
         File dir=new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),folder);
         Uri collection=Build.VERSION.SDK_INT>=29?MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY):MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
         Uri uri=null;String path=null;boolean inserted=false;File temp=null;
         String[] columns=Build.VERSION.SDK_INT>=29?new String[]{"_id","_data","owner_package_name"}:new String[]{"_id","_data"};
-        try(android.database.Cursor cursor=resolver.query(collection,columns,Build.VERSION.SDK_INT>=29?"relative_path=? AND _display_name=?":"_data=?",Build.VERSION.SDK_INT>=29?new String[]{"Pictures/"+folder+"/",name}:new String[]{new File(dir,name).getAbsolutePath()},null)){
+        try(android.database.Cursor cursor=resolver.query(collection,columns,Build.VERSION.SDK_INT>=29?"relative_path=? AND _display_name=?":"_data=?",Build.VERSION.SDK_INT>=29?new String[]{relativePath(folder),name}:new String[]{new File(dir,name).getAbsolutePath()},null)){
             if(cursor!=null&&cursor.moveToFirst()){
                 uri=ContentUris.withAppendedId(collection,cursor.getLong(0));path=cursor.getString(1);
                 boolean owned=Build.VERSION.SDK_INT>=29?context.getPackageName().equals(cursor.getString(2)):context.getSharedPreferences("screensaver-owned-exports",0).contains(uri.toString());
@@ -70,7 +71,7 @@ final class ScreensaverExport {
             if(uri==null){
                 if(new File(dir,name).exists())throw new IOException("同名图片已存在，请移走后重试");
                 ContentValues values=new ContentValues();values.put(MediaStore.Images.Media.DISPLAY_NAME,name);values.put(MediaStore.Images.Media.MIME_TYPE,"image/png");
-                if(Build.VERSION.SDK_INT>=29){values.put(MediaStore.Images.Media.RELATIVE_PATH,"Pictures/"+folder+"/");values.put(MediaStore.Images.Media.IS_PENDING,1);}
+                if(Build.VERSION.SDK_INT>=29){values.put(MediaStore.Images.Media.RELATIVE_PATH,relativePath(folder));values.put(MediaStore.Images.Media.IS_PENDING,1);}
                 else {if(!dir.isDirectory()&&!dir.mkdirs())throw new IOException("无法创建相册目录，请允许存储权限");values.put(MediaStore.Images.Media.DATA,new File(dir,name).getAbsolutePath());}
                 uri=resolver.insert(collection,values);if(uri==null)throw new IOException("无法创建相册图片");inserted=true;
                 try(OutputStream out=resolver.openOutputStream(uri,"w")){if(out==null)throw new IOException("无法写入相册图片");out.write(data);out.flush();}

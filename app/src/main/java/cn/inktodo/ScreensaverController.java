@@ -59,7 +59,7 @@ final class ScreensaverController {
             signature=model.fingerprint(size.x,size.y,font);
             synchronized(gate){
                 if(!force&&version!=epoch)return Outcome.STALE;
-                if(!force&&prefs.getInt("delivery_version",0)==1&&!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
+                if(!force&&prefs.getInt("delivery_version",0)==2&&!prefs.getBoolean("needs_submit",false)&&signature.equals(prefs.getString("last_hash",""))&&ScreensaverExport.current(prefs.getString("last_path",""))&&new File(prefs.getString("last_path","")).isFile())return Outcome.UNCHANGED;
                 if(!force&&signature.equals(prefs.getString("failed_hash",""))&&System.currentTimeMillis()-prefs.getLong("failed_at",0)<60000)return Outcome.RETRY_LATER;
             }
             Bitmap bitmap=SnapshotImage.create(size.x,size.y,model,snapshot.lastSync,choice.face);
@@ -92,18 +92,22 @@ final class ScreensaverController {
         }schedule(750);return true;
     }
     private void save(ScreensaverExport.Published image,String signature,String importPath){
-        prefs.edit().putInt("delivery_version",1).putString("last_import_path",importPath).putString("last_uri",image.uri.toString()).putString("last_path",image.path).putString("last_hash",signature).putLong("last_submitted",System.currentTimeMillis()).remove("last_error").remove("failed_hash").remove("failed_at").remove("previous_path").remove("previous_uri").remove("needs_submit").apply();
+        prefs.edit().putInt("delivery_version",2).putString("last_import_path",importPath).putString("last_uri",image.uri.toString()).putString("last_path",image.path).putString("last_hash",signature).putLong("last_submitted",System.currentTimeMillis()).remove("last_error").remove("failed_hash").remove("failed_at").remove("previous_path").remove("previous_uri").remove("needs_submit").apply();
         scheduleCleanup();
+    }
+    Set<String> protectedImages(){
+        Set<String> keep=new HashSet<>();keep.add(prefs.getString("last_path",""));
+        String imported=prefs.getString("last_import_path","");
+        if(!imported.isEmpty()){keep.add(imported);keep.add(ScreensaverRetention.systemPath(imported));}
+        SharedPreferences photo=context.getSharedPreferences("photo-screensaver-backup",0);
+        if(photo.getBoolean("active",false)){String photoPath=photo.getString("photo_path","");keep.add(photoPath);if(!photoPath.isEmpty())keep.add(ScreensaverRetention.systemPath(photoPath));}
+        return keep;
     }
     private void scheduleCleanup(){
         synchronized(gate){
             WORK.schedule(()->{
                 synchronized(gate){
-                    String path=prefs.getString("last_path","");
-                    Set<String> keep=new HashSet<>();keep.add(path);
-                    SharedPreferences photo=context.getSharedPreferences("photo-screensaver-backup",0);
-                    if(photo.getBoolean("active",false))keep.add(photo.getString("photo_path",""));
-                    retention.prune(keep,System.currentTimeMillis());
+                    retention.prune(protectedImages(),System.currentTimeMillis());
                 }
             },ScreensaverRetention.GRACE_MS+500,TimeUnit.MILLISECONDS);
         }

@@ -23,4 +23,5 @@
     <instrumentation android:name="cn.inktodo.SettingsHierarchyRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao fixed-size immediate hierarchical settings" />
     <instrumentation android:name="cn.inktodo.ScreensaverReadProbe" android:targetPackage="cn.inktodo.app" android:label="Weiliao screensaver import read probe" />
     <instrumentation android:name="cn.inktodo.QuickAddRunner" android:targetPackage="cn.inktodo.app" android:label="Weiliao quick inbox task creation" />
+    <instrumentation android:name="cn.inktodo.ScreensaverStorageRunner" android:targetPackage="cn.inktodo.app" android:label="Explicit real cached wallpaper retention verification" />
 </manifest>
